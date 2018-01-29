@@ -1,0 +1,29 @@
+#!/usr/bin/env python
+import argparse
+import logging
+import datetime
+import sys
+
+# Setup logging
+log = logging.getLogger()
+log.setLevel(logging.DEBUG)
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+log.addHandler(ch)
+fh = logging.FileHandler('polcal.log', mode='w')
+fh.setLevel(logging.DEBUG) 
+log.addHandler(fh)
+
+# Log basics
+log.info('-----polcal-----')
+log.info('Platform: '+sys.platform)
+log.info('Version: 0.1')
+log.info('Time: '+datetime.datetime.now().replace(microsecond=0).isoformat())
+log.info('Command: '+str(sys.argv))
+
+# Parse arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('-o', '--output-filename', dest='output_filename',
+                    default='output.cal', help='Specify the output filename.')
+
+args = parser.parse_args()
