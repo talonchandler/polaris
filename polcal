@@ -1,8 +1,21 @@
 #!/usr/bin/env python
+
+# Imports
 import argparse
 import logging
 import datetime
+import subprocess
 import sys
+
+# Parse arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('-o', '--output-filename', dest='output_filename',
+                    default='output.cal', help='Specify the output filename.')
+
+parser.add_argument('-l', '--log-filename', dest='log_filename',
+                    default='polcal.log', help='Specify the log filename.')
+
+args = parser.parse_args()
 
 # Setup logging
 log = logging.getLogger()
@@ -10,20 +23,18 @@ log.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
 log.addHandler(ch)
-fh = logging.FileHandler('polcal.log', mode='w')
+fh = logging.FileHandler(args.log_filename, mode='w')
 fh.setLevel(logging.DEBUG) 
 log.addHandler(fh)
 
 # Log basics
 log.info('-----polcal-----')
-log.info('Platform: '+sys.platform)
-log.info('Version: 0.1')
-log.info('Time: '+datetime.datetime.now().replace(microsecond=0).isoformat())
-log.info('Command: '+str(sys.argv))
+log.info('Platform:\t'+sys.platform)
+v = subprocess.Popen(['git', 'rev-parse', '--short', 'HEAD'],
+                     cwd='/'.join(__file__.split('/')[:-1])+'/',
+                     stdout=subprocess.PIPE).communicate()[0]
+log.info('Version:\t'+v.strip().decode('ascii'))
+log.info('Time:\t\t'+datetime.datetime.now().replace(microsecond=0).isoformat())
+log.info('Command:\t'+' '.join(sys.argv))
 
-# Parse arguments
-parser = argparse.ArgumentParser()
-parser.add_argument('-o', '--output-filename', dest='output_filename',
-                    default='output.cal', help='Specify the output filename.')
-
-args = parser.parse_args()
+# Start actually doing stuff here...
