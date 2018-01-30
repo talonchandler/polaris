@@ -10,29 +10,29 @@ import dill
 
 # Parse arguments
 parser = argparse.ArgumentParser()
-parser.add_argument('-o', '--output-filename', dest='output_filename',
+parser.add_argument('-o', '--output-filename', 
                     default='output.cal', help='Specify the output filename.')
 
-parser.add_argument('-l', '--log-filename', dest='log_filename',
-                    default='output.log', help='Specify the log filename.')
+parser.add_argument('-l', '--log-filename',
+                    default='polcal.log', help='Specify the log filename.')
 
 parser.add_argument('-n', dest='n', type=float,
                     default=1.33, help='Index of refraction')
 
-parser.add_argument('--ill-thetas', nargs='+', dest='ill_thetas', type=float,
-                    default=[0], help='Illumination axis directions in degress from z axis. +z-axis is 0. +x-axis is 90. Example: "--ill-theta 0 90"')
+parser.add_argument('--ill-thetas', nargs='+', type=float,
+                    default=[0], help='Illumination axis directions in degress from z axis. +z-axis is 0. +x-axis is 90. Example: "--ill-theta 0 90".')
 
-parser.add_argument('--det-thetas', nargs='+', dest='det_thetas', type=float,
-                    default=[0], help='Detection axis directions in degress from z axis. +z-axis is 0. +x-axis is 90. Example: "--det-theta 0 90"')
+parser.add_argument('--det-thetas', nargs='+', type=float,
+                    default=[0], help='Detection axis directions in degress from z axis. +z-axis is 0. +x-axis is 90. Example: "--det-theta 0 90".')
 
-parser.add_argument('--det-nas', nargs='+', dest='det_nas', type=float,
-                    default=[0.8], help='Detection NAs. Example: "--det-nas 1.1 0.71"')
+parser.add_argument('--det-nas', nargs='+', type=float,
+                    default=[0.8], help='Detection NAs. Example: "--det-nas 1.1 0.71".')
 
-parser.add_argument('--phi-pols', nargs='+', dest='phi_pols', type=float,
-                    default=[0, 45, 90, 135], help='Illumination polarization angles wrt +x for z-axis illumination (wrt -z for x-axis illumination). Example: "--phi-pols 0 45 90 135"')
+parser.add_argument('--phi-pols', nargs='+', type=float,
+                    default=[0, 45, 90, 135], help='Illumination polarization angles wrt +x for z-axis illumination (wrt -z for x-axis illumination). Example: "--phi-pols 0 45 90 135".')
 
-parser.add_argument('--max-l', dest='max_l', type=int,
-                    default=4, help='Bandlimit for integrals')
+parser.add_argument('--max-l', type=int,
+                    default=4, help='Bandlimit for integrals.')
 
 arg = parser.parse_args()
 
@@ -63,8 +63,14 @@ exp = multi.MultiMicroscope(ill_thetas=arg.ill_thetas,
                             det_thetas=arg.det_thetas, det_nas=arg.det_nas,
                             phi_pols=arg.phi_pols, max_l=arg.max_l, n=arg.n)
                             
-# Calculate and save (comment this on repeat runs)
+# Calculate system matrix
 exp.calc_sys_matrix()
+
+# Delete prfs because of sympy bug https://github.com/sympy/sympy/issues/12895
+for micro in exp.micros:
+    micro.prf = None
+
+# Save to file
 dill.dump(exp, open(arg.output_filename,'wb'))
 
 # Pass on calibration file.

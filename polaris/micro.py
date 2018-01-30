@@ -17,7 +17,10 @@ class Microscope:
         self.color = color
 
     def __str__(self):
-        return str(self.prf)
+        return ('ill_theta='+str(self.ill.theta_optical_axis)+
+                ', phi_pol='+str(self.ill.phi_pol)+
+                ', det_theta='+str(self.det.theta_optical_axis)+
+                ', det_na='+str(self.det.theta_optical_axis))
 
     def Hlm(self, max_l=4):
         self.Hlm = sft.sft(self.prf, max_l=max_l)

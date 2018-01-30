@@ -4,7 +4,8 @@ solvers.options['show_progress'] = False
 import sys
 import numpy as np
 import logging
-log = logging.getLogger('cal')                
+log = logging.getLogger('cal')
+logr = logging.getLogger('recon')                
 
 class MultiMicroscope:
     """A MultiMicroscope is an experiment that collects intensity data 
@@ -15,7 +16,7 @@ class MultiMicroscope:
     """
     def __init__(self, ill_thetas=[0], det_thetas=[0],
                  det_nas=[0.8], n=1.33, phi_pols=[0, 45, 90, 135],
-                 max_l=4, n_pts=100):
+                 max_l=4, n_angle_pts=100):
 
         log.info('-----building MultiMicroscope-----')
         
@@ -29,18 +30,20 @@ class MultiMicroscope:
                                        phi_pol=phi_pol)
                 det_ = det.Detector(theta_optical_axis=det_thetas[i],
                                     NA=det_nas[i], n=1.33)
-                m.append(micro.Microscope(ill=ill_, det=det_)) # Add microscope
+                mic = micro.Microscope(ill=ill_, det=det_)
+                m.append(mic) # Add microscope
+                log.info('Micro ' + str(len(m)-1) + ': ' +str(mic))
 
         self.micros = m
         self.max_l = max_l
         self.max_j = int((max_l + 1)*(max_l + 2)/2)
-        self.n_pts = n_pts
+        self.n_angle_pts = n_angle_pts
 
     def calc_sys_matrix(self):
         log.info('-----calculating system matrix-----')
         psi = []
         for i, micro in enumerate(self.micros):
-            log.info('Micro ' + str(i) + ' prf:\t' + str(micro))
+            log.info('Micro ' + str(i) + ' prf:\t' + str(micro.prf))
             psi_row = sft.sft(micro.prf, max_l=self.max_l)
             psi.append(psi_row)
         psi = np.array(psi, dtype=float)
@@ -49,11 +52,13 @@ class MultiMicroscope:
 
     def calc_B_matrix(self):
         # B is a discrete inverse spherical Fourier transform
-        # f = BF, F is max_j x 1, B is n_pts x max_j, f is n_pts x 1
+        # f = BF, F is max_j x 1, B is n_angle_pts x max_j, f is n_angle_pts x 1
 
         # Find fibonacci points
-        pts = util.fibonacci_sphere(self.n_pts)
-        B = np.zeros((self.n_pts, self.max_j))
+        logr.info('-----calculating discrete spherical Fourier transform matrix-----')
+        logr.info('n_angle_pts:\t '+ str(self.n_angle_pts))
+        pts = util.fibonacci_sphere(self.n_angle_pts)
+        B = np.zeros((self.n_angle_pts, self.max_j))
 
         # Calculate B
         for index, x in np.ndenumerate(B):
