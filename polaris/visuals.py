@@ -1,5 +1,5 @@
 # Custom vispy classes
-from polharmonic import util
+from polaris import util
 import numpy as np
 from vispy.geometry import create_sphere, MeshData
 from vispy.visuals.mesh import MeshVisual

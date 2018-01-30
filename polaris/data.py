@@ -1,8 +1,8 @@
 import numpy as np
-from polharmonic import util
+from polaris import util
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-from mayavi import mlab
+#from mayavi import mlab
 import matplotlib.image as mpimg
 import subprocess
 import scipy.ndimage

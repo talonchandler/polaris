@@ -1,5 +1,4 @@
 import numpy as np
-import polharmonic.util as util
 from sympy import *
 
 class Detector:

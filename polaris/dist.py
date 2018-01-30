@@ -1,10 +1,10 @@
 import numpy as np
-from polharmonic import util, sft
-from mayavi import mlab
+from polaris import util, sft
+#from mayavi import mlab
 import subprocess
 from cvxopt import matrix, solvers
 import sys
-import vispy
+#import vispy
 import scipy.misc
 
 class DistributionField:

@@ -1,5 +1,5 @@
 import numpy as np
-from polharmonic import util, ill, det, sft
+from polaris import util, ill, det, sft
 
 class Microscope:
     """
@@ -15,6 +15,9 @@ class Microscope:
         self.det = det
         self.prf = self.ill.exc_prf()*self.det.det_prf()
         self.color = color
+
+    def __str__(self):
+        return str(self.prf)
 
     def Hlm(self, max_l=4):
         self.Hlm = sft.sft(self.prf, max_l=max_l)

@@ -6,3 +6,5 @@
 
 # Results
 *.log
+/examples
+

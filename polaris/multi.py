@@ -1,20 +1,23 @@
-from polharmonic import ill, det, micro, util, dist, sft, data
+from polaris import ill, det, micro, util, dist, sft, data
 from cvxopt import matrix, solvers
 solvers.options['show_progress'] = False
 import sys
 import numpy as np
+import logging
+log = logging.getLogger('cal')                
 
 class MultiMicroscope:
-    """A MultiMicroscope represents an experiment that collects intensity data 
+    """A MultiMicroscope is an experiment that collects intensity data 
     under several different conditions (different polarization states or 
     illumination schemes).
 
     A MultiMicroscope mainly consists of a list of Microscopes.
     """
     def __init__(self, ill_thetas=[0], det_thetas=[0],
-                 det_nas=[0.8], n_samp=1.33,
-                 phi_pols=[0, 45, 90, 135],
+                 det_nas=[0.8], n=1.33, phi_pols=[0, 45, 90, 135],
                  max_l=4, n_pts=100):
+
+        log.info('-----building MultiMicroscope-----')
         
         m = [] # List of microscopes
 
@@ -34,8 +37,10 @@ class MultiMicroscope:
         self.n_pts = n_pts
 
     def calc_sys_matrix(self):
+        log.info('-----calculating system matrix-----')
         psi = []
-        for micro in self.micros:
+        for i, micro in enumerate(self.micros):
+            log.info('Micro ' + str(i) + ' prf:\t' + str(micro))
             psi_row = sft.sft(micro.prf, max_l=self.max_l)
             psi.append(psi_row)
         psi = np.array(psi, dtype=float)

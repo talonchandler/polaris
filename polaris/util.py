@@ -3,12 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import matplotlib
-from mayavi import mlab
+#from mayavi import mlab
 from scipy.special import sph_harm
 import scipy.misc
 from skimage import io
-import vispy
-from polharmonic import visuals
+#import vispy
+#from polaris import visuals
 
 # SciPy real spherical harmonics with identical interface to SymPy's Znm
 # Useful for faster numerical evaluation of Znm

@@ -1,22 +1,25 @@
-from polharmonic.util import *
 import numpy as np
-from sympy import *
-import sympy.functions.special.spherical_harmonics as sh
+import sympy as sym
+sh = sym.functions.special.spherical_harmonics
+import logging
+log = logging.getLogger('cal')                
 
 # Globals
-theta = Symbol('theta', real=True)
-phi = Symbol('phi', real=True)
+theta = sym.Symbol('theta', real=True)
+phi = sym.Symbol('phi', real=True)
 
 # Analytic forward spherical Fourier transform
 def sft(f, max_l=4):
     coeffs = []
     for l in range(0, max_l+2, 2):
         for m in range(-l, l+1):
-            print("Integrating: "+ str(l) + ', ' + str(m))
+            log.info('Integrating:\tl='+ str(l) + ', m=' + str(m))
             Znm = sh.Znm(l, m, theta, phi).expand(func=True)
-            theta_int = integrate(expand(sin(theta)*Znm*f), (theta, 0, pi)) 
-            final_int = integrate(expand_trig(theta_int.rewrite(cos)), (phi, 0, 2*pi))
-            coeffs.append(re(final_int).evalf())
+            theta_int = sym.integrate(sym.expand(sym.sin(theta)*Znm*f), (theta, 0, sym.pi)) 
+            final_int = sym.integrate(sym.expand_trig(theta_int.rewrite(sym.cos)), (phi, 0, 2*sym.pi))
+            result = sym.re(final_int).evalf()
+            coeffs.append(result)
+            log.info('Result:\t\t'+ str(round(result, 3)))
     return np.array(coeffs)
 
 # Numerical forward spherical Fourier transform from delta
