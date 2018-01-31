@@ -17,21 +17,20 @@ else:
 
 # Parse arguments
 parser = argparse.ArgumentParser()
-parser.add_argument('-c', '--calibration-filename', nargs='?',
-                    default=cal_file,
-                    help='Specify the output filename.')
+parser.add_argument('-c', '--calibration-filename', nargs='?', 
+                    default=cal_file, help='Specify the output filename.')
 
 parser.add_argument('-d', '--data-folder', 
                     help='Specify the input data folder.')
 
-parser.add_argument('-o', '--output-filename',
-                    default='output.vtu', help='Specify the output filename.')
+parser.add_argument('-o', '--output-filename', default='output.vtu', 
+                    help='Specify the output filename.')
 
-parser.add_argument('-l', '--log-filename',
-                    default='polrecon.log', help='Specify the log filename.')
+parser.add_argument('-l', '--log-filename', default='polrecon.log', 
+                    help='Specify the log filename.')
 
-parser.add_argument('-n', '--n-angle-pts', type=int,
-                    default=500, help='The number of angular points to reconstruct.')
+parser.add_argument('-n', '--n-angle-pts', type=int, default=500, 
+                    help='The number of angular points to reconstruct.')
 
 arg = parser.parse_args()
 
@@ -67,13 +66,14 @@ except:
     log.info("WARNING:\tCouldn't read calibration file.")
 
 # Calculate B matric
-exp.n_angle_pts = args.n_angle_pts
+exp.n_angle_pts = arg.n_angle_pts
 exp.calc_B_matrix()
 
 # Load data into memory
+import numpy as np
 names = ['A_reg_P3.tif', 'A_reg_P4.tif', 'A_reg_P1.tif', 'A_reg_P2.tif',
          'B_reg_P3.tif', 'B_reg_P4.tif', 'B_reg_P1.tif', 'B_reg_P2.tif']
-input_files = np.array([args.data_folder + name for name in names])
+input_files = np.array([arg.data_folder + name for name in names])
 cal = np.array([1.06, 1.0, 1.0, 1.03, 
                 1.08, 1.05, 1.0, 1.04])
 
@@ -83,7 +83,14 @@ input_files = input_files[idx]
 cal = cal[idx]
 
 # Load intensity field
+from polaris import data
 intf = data.IntensityField()
+xs=100
+ys=100
+zs=40
+x0=180
+y0=545
+z0=150
 intf.load_from_file(file_names=input_files, x0=x0, y0=y0, z0=z0, xspan=xs, yspan=ys, zspan=zs, cal=cal)
 # row_labels = ['$x$-illumination\n $z$-detection\n 1.1 NA', '$z$-illumination\n $x$-detection\n 0.71 NA']
 # col_labels = ['$\phi_{\mathrm{pol}} = 0^{\circ}$', '$\phi_{\mathrm{pol}} = 45^{\circ}$', '$\phi_{\mathrm{pol}} = 90^{\circ}$', '$\phi_{\mathrm{pol}} = 135^{\circ}$']
@@ -91,12 +98,34 @@ intf.load_from_file(file_names=input_files, x0=x0, y0=y0, z0=z0, xspan=xs, yspan
 #           row_labels=row_labels, col_labels=col_labels,
 #           d=d, mag=int_field_mag, dpi=400, show=False)
 
-import pdb; pdb.set_trace()
+recon_mask_threshold=0.4
+skip=3
+threshold_mask = np.max(intf.g, axis=-1) > recon_mask_threshold
+sparse_mask = np.zeros(threshold_mask.shape)
+sparse_mask[::skip, ::skip, ::skip] = 1
+mask = np.logical_and(threshold_mask, sparse_mask)
 
 df = exp.recon_dist_field(intf, mask=mask, prior='single')
-df.plot_dist_field(exp.B, exp.xyz, exp.triangles,
-                   filename=folder+'/data_both.png', r=skip, d=d,
-                   mag=recon_mag, show=False, mask=mask)
+
+# df.f_arr is currently 100x100x40x500 change to nx6 (xyzuvw)...should be very
+# similar to existing code in the visualization suite
+
+# df.plot_dist_field(exp.B, exp.xyz, exp.triangles,
+#                    filename=folder+'/data_both.png', r=skip, d=d,
+#                    mag=recon_mag, show=False, mask=mask)
+
+
+x, y, z, tp = np.nonzero(df.f_arr)
+u = exp.xyz[tp, 0]
+v = exp.xyz[tp, 1]
+w = exp.xyz[tp, 2]
+
+from pyevtk.hl import pointsToVTK
+import numpy as np
+
+pointsToVTK("./line_points",
+            x.astype('float'), y.astype('float'), z.astype('float'),
+            data = {"uvw" : (u,v,w)})
 
 # Pass on calibration file.
 log.info('stdout:\t\t'+arg.output_filename)
