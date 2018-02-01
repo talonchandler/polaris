@@ -92,12 +92,8 @@ x0=180
 y0=545
 z0=150
 intf.load_from_file(file_names=input_files, x0=x0, y0=y0, z0=z0, xspan=xs, yspan=ys, zspan=zs, cal=cal)
-# row_labels = ['$x$-illumination\n $z$-detection\n 1.1 NA', '$z$-illumination\n $x$-detection\n 0.71 NA']
-# col_labels = ['$\phi_{\mathrm{pol}} = 0^{\circ}$', '$\phi_{\mathrm{pol}} = 45^{\circ}$', '$\phi_{\mathrm{pol}} = 90^{\circ}$', '$\phi_{\mathrm{pol}} = 135^{\circ}$']
-# intf.plot(output_file=folder+'/'+'data.pdf', shape=(2,4),
-#           row_labels=row_labels, col_labels=col_labels,
-#           d=d, mag=int_field_mag, dpi=400, show=False)
 
+# Mask
 recon_mask_threshold=0.4
 skip=3
 threshold_mask = np.max(intf.g, axis=-1) > recon_mask_threshold
@@ -105,16 +101,10 @@ sparse_mask = np.zeros(threshold_mask.shape)
 sparse_mask[::skip, ::skip, ::skip] = 1
 mask = np.logical_and(threshold_mask, sparse_mask)
 
+# Reconstruct
 df = exp.recon_dist_field(intf, mask=mask, prior='single')
 
-# df.f_arr is currently 100x100x40x500 change to nx6 (xyzuvw)...should be very
-# similar to existing code in the visualization suite
-
-# df.plot_dist_field(exp.B, exp.xyz, exp.triangles,
-#                    filename=folder+'/data_both.png', r=skip, d=d,
-#                    mag=recon_mag, show=False, mask=mask)
-
-
+# Shuffle data for saving
 x, y, z, tp = np.nonzero(df.f_arr)
 u = exp.xyz[tp, 0]
 v = exp.xyz[tp, 1]
@@ -122,12 +112,10 @@ w = exp.xyz[tp, 2]
 
 from pyevtk.hl import pointsToVTK
 import numpy as np
-
 pointsToVTK("./line_points",
             x.astype('float'), y.astype('float'), z.astype('float'),
             data = {"uvw" : (u,v,w)})
 
-# Pass on calibration file.
+# Pass on output file.
 log.info('stdout:\t\t'+arg.output_filename)
 sys.stdout.write(arg.output_filename)
-
