@@ -1,6 +1,6 @@
 #!/bin/sh
 ''':'
-exec pvpython "$0.py"
+exec pvpython "$0"
 '''
 
 # state file generated using paraview version 5.4.0
