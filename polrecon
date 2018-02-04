@@ -7,6 +7,7 @@ import datetime
 import subprocess
 import sys
 import dill
+import time; start = time.time();
 
 # Check stdin for files names
 if not sys.stdin.isatty():
@@ -18,12 +19,12 @@ else:
 # Parse arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', '--calibration-filename', nargs='?', 
-                    default=cal_file, help='Specify the output filename.')
+                    default=None, help='Specify the output filename.')
 
 parser.add_argument('-d', '--data-folder', 
                     help='Specify the input data folder.')
 
-parser.add_argument('-o', '--output-filename', default='output.vtu', 
+parser.add_argument('-o', '--output-filename', default='output', 
                     help='Specify the output filename.')
 
 parser.add_argument('-l', '--log-filename', default='polrecon.log', 
@@ -32,8 +33,27 @@ parser.add_argument('-l', '--log-filename', default='polrecon.log',
 parser.add_argument('-n', '--n-angle-pts', type=int, default=500, 
                     help='The number of angular points to reconstruct.')
 
-arg = parser.parse_args()
+parser.add_argument('--reindex', nargs='+', type=int,
+                    default=[0, 3, 2, 1, 4, 5, 6, 7], 
+                    help='Reorder the data files to match the .cal file.')
 
+parser.add_argument('--span', nargs=3, type=int,
+                    default=[100, 100, 40], 
+                    help='Size in pixels of the reconstructed ROI. [x, y, z]')
+
+parser.add_argument('--origin', nargs=3, type=int,
+                    default=[180, 545, 150], 
+                    help='Origin of ROI in pixel coordinates. [x, y, z]')
+
+parser.add_argument('--recon-threshold', type=float, default=0.4, 
+                    help='Threshold for reconstructing the voxel.')
+
+parser.add_argument('--skip', type=int, default=3, 
+                    help='Skip every x voxels for reconstruction.')
+
+parser.add_argument('--prior', default='single', help="'single', 'none'")
+                    
+arg = parser.parse_args()
 
 # Setup logging
 log = logging.getLogger('recon')
@@ -74,35 +94,31 @@ import numpy as np
 names = ['A_reg_P3.tif', 'A_reg_P4.tif', 'A_reg_P1.tif', 'A_reg_P2.tif',
          'B_reg_P3.tif', 'B_reg_P4.tif', 'B_reg_P1.tif', 'B_reg_P2.tif']
 input_files = np.array([arg.data_folder + name for name in names])
+
+# TODO: These should come in via the .cal file
 cal = np.array([1.06, 1.0, 1.0, 1.03, 
                 1.08, 1.05, 1.0, 1.04])
 
 # Reindexing 
-idx = [0, 3, 2, 1, 4, 5, 6, 7]
+idx = arg.reindex 
 input_files = input_files[idx]
 cal = cal[idx]
 
-# Load intensity field
+# Load data from file
 from polaris import data
 intf = data.IntensityField()
-xs=100
-ys=100
-zs=40
-x0=180
-y0=545
-z0=150
-intf.load_from_file(file_names=input_files, x0=x0, y0=y0, z0=z0, xspan=xs, yspan=ys, zspan=zs, cal=cal)
+intf.load_from_file(file_names=input_files,
+                    x0=arg.origin[0], y0=arg.origin[1], z0=arg.origin[2],
+                    xs=arg.span[0], ys=arg.span[1], zs=arg.span[2], cal=cal)
 
-# Mask
-recon_mask_threshold=0.4
-skip=3
-threshold_mask = np.max(intf.g, axis=-1) > recon_mask_threshold
+# Generate reconstruction mask
+threshold_mask = np.max(intf.g, axis=-1) > arg.recon_threshold
 sparse_mask = np.zeros(threshold_mask.shape)
-sparse_mask[::skip, ::skip, ::skip] = 1
+sparse_mask[::arg.skip, ::arg.skip, ::arg.skip] = 1
 mask = np.logical_and(threshold_mask, sparse_mask)
 
 # Reconstruct
-df = exp.recon_dist_field(intf, mask=mask, prior='single')
+df = exp.recon_dist_field(intf, mask=mask, prior=arg.prior)
 
 # Shuffle data for saving
 x, y, z, tp = np.nonzero(df.f_arr)
@@ -110,12 +126,13 @@ u = exp.xyz[tp, 0]
 v = exp.xyz[tp, 1]
 w = exp.xyz[tp, 2]
 
+# Save to .vtu file
 from pyevtk.hl import pointsToVTK
 import numpy as np
-pointsToVTK("./line_points",
+pointsToVTK(arg.output_filename,
             x.astype('float'), y.astype('float'), z.astype('float'),
             data = {"uvw" : (u,v,w)})
 
 # Pass on output file.
-log.info('stdout:\t\t'+arg.output_filename)
-sys.stdout.write(arg.output_filename)
+log.info('stdout:\t\t'+arg.output_filename+'.vtu')
+sys.stdout.write(arg.output_filename+'.vtu')

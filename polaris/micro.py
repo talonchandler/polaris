@@ -25,11 +25,7 @@ class Microscope:
     def Hlm(self, max_l=4):
         self.Hlm = sft.sft(self.prf, max_l=max_l)
         return self.Hlm
-
-    def plot_micro(filename=None):
-        # TODO 
-        return 0
-
+    
     def plot_scene(self, filename):
         util.draw_scene(self.scene_string(), filename=filename, save_file=True)
 

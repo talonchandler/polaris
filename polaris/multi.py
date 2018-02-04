@@ -3,9 +3,10 @@ from cvxopt import matrix, solvers
 solvers.options['show_progress'] = False
 import sys
 import numpy as np
+import time
 import logging
 log = logging.getLogger('cal')
-logr = logging.getLogger('recon')                
+logr = logging.getLogger('recon')
 
 class MultiMicroscope:
     """A MultiMicroscope is an experiment that collects intensity data 
@@ -56,7 +57,7 @@ class MultiMicroscope:
 
         # Find fibonacci points
         logr.info('-----calculating discrete spherical Fourier transform matrix-----')
-        logr.info('n_angle_pts:\t '+ str(self.n_angle_pts))
+        logr.info('Angles:\t'+ str(self.n_angle_pts))
         pts = util.fibonacci_sphere(self.n_angle_pts)
         B = np.zeros((self.n_angle_pts, self.max_j))
 
@@ -68,7 +69,7 @@ class MultiMicroscope:
         
         self.B = B
 
-        # Calculate x,y,z spherical coordinates and triangulation
+        # Calculate x,y,z spherical coordinates and triangulation for plotting
         theta = pts[:,0]
         phi = pts[:,1]
         x = np.sin(theta)*np.cos(phi)
@@ -90,19 +91,9 @@ class MultiMicroscope:
         return intf
     
     def recon_dist(self, g, prior=None):
-        if prior is None:
-            N = self.B.shape[1]
-            M = self.B.shape[0]
-            P = matrix(2*np.matmul(self.psi.T, self.psi), tc='d')
-            q = matrix(-2*np.matmul(g, self.psi), tc='d')
-            G = matrix(-self.B, tc='d')
-            h = matrix(np.zeros(M), tc='d')
-            sol = solvers.qp(P, q, G, h)
-            sh = np.array(sol['x']).flatten()
-            d = dist.Distribution(sh=sh)
-            return d
-        elif prior is 'single':
+        if prior is 'single':
             # Construct prior set (single directions w/ 10 amplitudes)
+            #f_prior = np.identity(self.B.shape[0])
             f_prior = np.hstack([(x*0.1 + 0.1)*np.identity(self.B.shape[0]) for x in range(10)])
             H_model = np.matmul(self.psi, np.linalg.pinv(self.B))
             g_model = np.matmul(H_model, f_prior)
@@ -113,12 +104,38 @@ class MultiMicroscope:
             f = f_prior[:, argmin]
             d = dist.Distribution(f=f)
             return d
+        else:
+            N = self.B.shape[1]
+            M = self.B.shape[0]
+            P = matrix(2*np.matmul(self.psi.T, self.psi), tc='d')
+            q = matrix(-2*np.matmul(g, self.psi), tc='d')
+            G = matrix(-self.B, tc='d')
+            h = matrix(np.zeros(M), tc='d')
+            sol = solvers.qp(P, q, G, h)
+            sh = np.array(sol['x']).flatten()
+            d = dist.Distribution(sh=sh)
+            return d
 
     def recon_dist_field(self, intf, mask=None, prior=None):
+        logr.info('-----reconstructing distribution field-----')
+        start = time.time();
         g = intf.g
-        N = np.sum(mask)
-        j = 1        
-        if prior is None:
+        if prior is 'single':
+            dist_arr = np.zeros([*g.shape[:-1], self.B.shape[0]])
+            mask_idx = np.nonzero(mask)
+            j = 1            
+            for i in range(mask_idx[0].shape[0]):
+                if i % 100 == 0:
+                    logr.info('Progress:\t'+str(i)+'/'+str(np.sum(mask)))
+                # sys.stdout.flush()
+                # sys.stdout.write("Reconstructing: "+ str(j) + '/' + str(np.sum(mask)) + '\r')
+                j += 1
+                idx = mask_idx[0][i], mask_idx[1][i], mask_idx[2][i]
+                d = self.recon_dist(g[idx], prior=prior)
+                dist_arr[idx] = d.f
+            logr.info('Recon time (s):\t'+str(np.round(time.time() - start, 2)))                
+            return dist.DistributionField(f_arr=dist_arr)
+        else:
             dist_arr = np.zeros([*g.shape[:-1], self.max_j])
             for i in np.ndindex(g.shape[:-1]):
                 if mask[i]:
@@ -133,18 +150,7 @@ class MultiMicroscope:
             d.calc_f_arr(self.B)
             return d
         
-        elif prior is 'single':
-            dist_arr = np.zeros([*g.shape[:-1], self.B.shape[0]])
-            mask_idx = np.nonzero(mask)
-            for i in range(mask_idx[0].shape[0]):
-                sys.stdout.flush()
-                sys.stdout.write("Reconstructing: "+ str(j) + '/' + str(N) + '\r')
-                j += 1
-                idx = mask_idx[0][i], mask_idx[1][i], mask_idx[2][i]
-                d = self.recon_dist(g[idx], prior=prior)
-                dist_arr[idx] = d.f
-            return dist.DistributionField(f_arr=dist_arr)
-
+        
     def plot_scene(self, filename):
         scene_string = ''
         for micro in self.micros:
@@ -196,5 +202,3 @@ class MultiMicroscope:
             d = dist.Distribution(Vh[i,:])
             filename = folder+'/sv'+str(i)+'.png'
             d.plot_dist(self.B, self.xyz, self.triangles, filename=filename)
-
-        # TODO Automate svs
