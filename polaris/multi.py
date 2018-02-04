@@ -127,8 +127,6 @@ class MultiMicroscope:
             for i in range(mask_idx[0].shape[0]):
                 if i % 100 == 0:
                     logr.info('Progress:\t'+str(i)+'/'+str(np.sum(mask)))
-                # sys.stdout.flush()
-                # sys.stdout.write("Reconstructing: "+ str(j) + '/' + str(np.sum(mask)) + '\r')
                 j += 1
                 idx = mask_idx[0][i], mask_idx[1][i], mask_idx[2][i]
                 d = self.recon_dist(g[idx], prior=prior)
@@ -149,7 +147,6 @@ class MultiMicroscope:
             d = dist.DistributionField(sh_arr=dist_arr)
             d.calc_f_arr(self.B)
             return d
-        
         
     def plot_scene(self, filename):
         scene_string = ''

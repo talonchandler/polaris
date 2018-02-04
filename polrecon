@@ -122,6 +122,7 @@ df = exp.recon_dist_field(intf, mask=mask, prior=arg.prior)
 
 # Shuffle data for saving
 x, y, z, tp = np.nonzero(df.f_arr)
+r = df.f_arr[x, y, z, tp]
 u = exp.xyz[tp, 0]
 v = exp.xyz[tp, 1]
 w = exp.xyz[tp, 2]
@@ -131,7 +132,7 @@ from pyevtk.hl import pointsToVTK
 import numpy as np
 pointsToVTK(arg.output_filename,
             x.astype('float'), y.astype('float'), z.astype('float'),
-            data = {"uvw" : (u,v,w)})
+            data = {"uvw" : (u,v,w), "r" : r})
 
 # Pass on output file.
 log.info('stdout:\t\t'+arg.output_filename+'.vtu')

@@ -35,7 +35,7 @@ parser.add_argument('-pv', '--paraview', action='store_true',
 parser.add_argument('--fps', default=3, type=int,
                     help='Frame rate. Only works if output file is [.avi, .mp4]')
 
-parser.add_argument('--size', nargs=2, type=int, default=[1100, 700],
+parser.add_argument('--size', nargs=2, type=int, default=[1000, 700],
                     help='Image size in pixels. Only works for animations [.avi, .mp4]. Use -m for screenshots.')
 
 arg = parser.parse_args()
@@ -95,11 +95,22 @@ renderView1.AxesGrid.ZLabelColor = [0.0, 0.0, 0.0]
 
 # create a new 'XML Unstructured Grid Reader'
 line_pointsvtu = XMLUnstructuredGridReader(FileName=[arg.input_filename])
-line_pointsvtu.PointArrayStatus = ['uvw']
+line_pointsvtu.PointArrayStatus = ['r', 'uvw']
 
 # create a new 'XML Unstructured Grid Reader'
 line_pointsvtu_1 = XMLUnstructuredGridReader(FileName=[arg.input_filename])
-line_pointsvtu_1.PointArrayStatus = ['uvw']
+line_pointsvtu_1.PointArrayStatus = ['r', 'uvw']
+
+# disp_prop = GetDisplayProperties(line_pointsvtu_1, view=renderView1)
+
+# Properties modified on xMLUnstructuredGridReader1Display
+# disp_prop.OpacityArray = ['POINTS', 'r']
+
+# # Properties modified on xMLUnstructuredGridReader1Display
+# disp_prop.ScaleMode = 'Magnitude'
+
+# # Properties modified on xMLUnstructuredGridReader1Display
+# disp_prop.SelectScaleArray = 'r'
 
 # ----------------------------------------------------------------
 # setup the visualization in view 'renderView1'
@@ -129,6 +140,12 @@ line_pointsvtuDisplay.SetScaleArray = [None, '']
 line_pointsvtuDisplay.ScaleTransferFunction = 'PiecewiseFunction'
 line_pointsvtuDisplay.OpacityArray = [None, '']
 line_pointsvtuDisplay.OpacityTransferFunction = 'PiecewiseFunction'
+
+line_pointsvtuDisplay.SetScaleArray = ['POINTS', 'r']
+line_pointsvtuDisplay.OpacityArray = ['POINTS', 'r']
+line_pointsvtuDisplay.ScaleMode = 'Magnitude'
+line_pointsvtuDisplay.SelectScaleArray = 'r'
+
 
 # init the 'Arrow' selected for 'GlyphType'
 line_pointsvtuDisplay.GlyphType.TipResolution = 1
