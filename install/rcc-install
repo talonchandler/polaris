@@ -1,0 +1,3 @@
+module load Anaconda3/5.0.0.1
+pip install -r environment.txt --user
+moduel load paraview/5.4.0
