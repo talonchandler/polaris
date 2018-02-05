@@ -69,192 +69,86 @@ from paraview.simple import *
 paraview.simple._DisableFirstRenderCameraReset()
 
 # Create a new 'Render View'
-renderView1 = CreateView('RenderView')
-renderView1.ViewSize = [1830, 678]
-renderView1.AnnotationColor = [0.0, 0.0, 0.0]
-renderView1.AxesGrid = 'GridAxes3DActor'
-renderView1.OrientationAxesVisibility = 0
-renderView1.OrientationAxesLabelColor = [0.0, 0.0, 0.0]
-renderView1.OrientationAxesOutlineColor = [0.0, 0.0, 0.0]
-renderView1.CenterOfRotation = [43.5, 49.5, 19.5]
-renderView1.StereoType = 0
-renderView1.CameraPosition = [-92.8211, -99.84000000000006, 104.753]
-renderView1.CameraFocalPoint = [43.5, 49.5, 19.5]
-renderView1.CameraViewUp = [0.36295577383376965, 0.1895031731835262, 0.9123330825932512]
-renderView1.CameraParallelScale = 68.7223
-renderView1.Background = [1.0, 1.0, 1.0]
+view = CreateView('RenderView')
+view.ViewSize = arg.size
+view.AnnotationColor = [0.0, 0.0, 0.0]
+view.AxesGrid = 'GridAxes3DActor'
+view.OrientationAxesVisibility = 0
+view.OrientationAxesLabelColor = [0.0, 0.0, 0.0]
+view.OrientationAxesOutlineColor = [0.0, 0.0, 0.0]
+view.CenterOfRotation = [43.5, 49.5, 19.5]
+view.StereoType = 0
+view.CameraPosition = [-92.82, -99.84, 104.75]
+view.CameraFocalPoint = [43.5, 49.5, 19.5]
+view.CameraViewUp = [0.36, 0.18, 0.91]
+view.CameraParallelScale = 68.72
+view.Background = [1.0, 1.0, 1.0]
 
-# init the 'GridAxes3DActor' selected for 'AxesGrid'
-renderView1.AxesGrid.XTitleColor = [0.0, 0.0, 0.0]
-renderView1.AxesGrid.YTitleColor = [0.0, 0.0, 0.0]
-renderView1.AxesGrid.ZTitleColor = [0.0, 0.0, 0.0]
-renderView1.AxesGrid.GridColor = [0.0, 0.0, 0.0]
-renderView1.AxesGrid.XLabelColor = [0.0, 0.0, 0.0]
-renderView1.AxesGrid.YLabelColor = [0.0, 0.0, 0.0]
-renderView1.AxesGrid.ZLabelColor = [0.0, 0.0, 0.0]
+# Create a new 'XML Unstructured Grid Reader'
+data = XMLUnstructuredGridReader(FileName=[arg.input_filename])
+data.PointArrayStatus = ['r', 'uvw']
 
-# create a new 'XML Unstructured Grid Reader'
-line_pointsvtu = XMLUnstructuredGridReader(FileName=[arg.input_filename])
-line_pointsvtu.PointArrayStatus = ['r', 'uvw']
+# Show data from data
+dataDisplay = Show(data, view)
 
-# create a new 'XML Unstructured Grid Reader'
-line_pointsvtu_1 = XMLUnstructuredGridReader(FileName=[arg.input_filename])
-line_pointsvtu_1.PointArrayStatus = ['r', 'uvw']
+# Glyph settings
+dataDisplay.Representation = '3D Glyphs'
+dataDisplay.DiffuseColor = [0.66, 0.0, 0.0]
+dataDisplay.GlyphType = 'Arrow'
+dataDisplay.ScaleFactor = 3.0
+dataDisplay.GlyphType.TipResolution = 1
+dataDisplay.GlyphType.TipRadius = 0.0
+dataDisplay.GlyphType.TipLength = 0.0
+dataDisplay.GlyphType.ShaftResolution = 32
+dataDisplay.GlyphType.ShaftRadius = 0.1
+dataDisplay.Orient = 1
+dataDisplay.SelectOrientationVectors = 'uvw'
+dataDisplay.Scaling = 1
+dataDisplay.ScaleMode = 'Magnitude'
+dataDisplay.SelectScaleArray = 'r'
 
-# disp_prop = GetDisplayProperties(line_pointsvtu_1, view=renderView1)
+# Outline
+data_1 = XMLUnstructuredGridReader(FileName=[arg.input_filename])
+data_1.PointArrayStatus = ['r', 'uvw']
+data_1Display = Show(data_1, view)
+data_1Display.Representation = 'Outline'
+data_1Display.AmbientColor = [0.0, 0.0, 0.0]
 
-# Properties modified on xMLUnstructuredGridReader1Display
-# disp_prop.OpacityArray = ['POINTS', 'r']
-
-# # Properties modified on xMLUnstructuredGridReader1Display
-# disp_prop.ScaleMode = 'Magnitude'
-
-# # Properties modified on xMLUnstructuredGridReader1Display
-# disp_prop.SelectScaleArray = 'r'
-
-# ----------------------------------------------------------------
-# setup the visualization in view 'renderView1'
-# ----------------------------------------------------------------
-
-# show data from line_pointsvtu
-line_pointsvtuDisplay = Show(line_pointsvtu, renderView1)
-# trace defaults for the display properties.
-line_pointsvtuDisplay.Representation = '3D Glyphs'
-line_pointsvtuDisplay.AmbientColor = [0.0, 0.0, 0.0]
-line_pointsvtuDisplay.ColorArrayName = [None, '']
-line_pointsvtuDisplay.DiffuseColor = [0.6666666666666666, 0.0, 0.0]
-line_pointsvtuDisplay.OSPRayScaleArray = 'uvw'
-line_pointsvtuDisplay.OSPRayScaleFunction = 'PiecewiseFunction'
-line_pointsvtuDisplay.Orient = 1
-line_pointsvtuDisplay.SelectOrientationVectors = 'uvw'
-line_pointsvtuDisplay.Scaling = 1
-line_pointsvtuDisplay.ScaleFactor = 3.0
-line_pointsvtuDisplay.SelectScaleArray = 'None'
-line_pointsvtuDisplay.GlyphType = 'Arrow'
-line_pointsvtuDisplay.GlyphTableIndexArray = 'None'
-line_pointsvtuDisplay.DataAxesGrid = 'GridAxesRepresentation'
-line_pointsvtuDisplay.PolarAxes = 'PolarAxesRepresentation'
-line_pointsvtuDisplay.ScalarOpacityUnitDistance = 12.143339580122927
-line_pointsvtuDisplay.GaussianRadius = 4.95
-line_pointsvtuDisplay.SetScaleArray = [None, '']
-line_pointsvtuDisplay.ScaleTransferFunction = 'PiecewiseFunction'
-line_pointsvtuDisplay.OpacityArray = [None, '']
-line_pointsvtuDisplay.OpacityTransferFunction = 'PiecewiseFunction'
-
-line_pointsvtuDisplay.SetScaleArray = ['POINTS', 'r']
-line_pointsvtuDisplay.OpacityArray = ['POINTS', 'r']
-line_pointsvtuDisplay.ScaleMode = 'Magnitude'
-line_pointsvtuDisplay.SelectScaleArray = 'r'
-
-
-# init the 'Arrow' selected for 'GlyphType'
-line_pointsvtuDisplay.GlyphType.TipResolution = 1
-line_pointsvtuDisplay.GlyphType.TipRadius = 0.0
-line_pointsvtuDisplay.GlyphType.TipLength = 0.0
-line_pointsvtuDisplay.GlyphType.ShaftResolution = 32
-line_pointsvtuDisplay.GlyphType.ShaftRadius = 0.1
-
-# init the 'GridAxesRepresentation' selected for 'DataAxesGrid'
-line_pointsvtuDisplay.DataAxesGrid.XTitleColor = [0.0, 0.0, 0.0]
-line_pointsvtuDisplay.DataAxesGrid.YTitleColor = [0.0, 0.0, 0.0]
-line_pointsvtuDisplay.DataAxesGrid.ZTitleColor = [0.0, 0.0, 0.0]
-line_pointsvtuDisplay.DataAxesGrid.GridColor = [0.0, 0.0, 0.0]
-line_pointsvtuDisplay.DataAxesGrid.XLabelColor = [0.0, 0.0, 0.0]
-line_pointsvtuDisplay.DataAxesGrid.YLabelColor = [0.0, 0.0, 0.0]
-line_pointsvtuDisplay.DataAxesGrid.ZLabelColor = [0.0, 0.0, 0.0]
-
-# init the 'PolarAxesRepresentation' selected for 'PolarAxes'
-line_pointsvtuDisplay.PolarAxes.PolarAxisTitleColor = [0.0, 0.0, 0.0]
-line_pointsvtuDisplay.PolarAxes.PolarAxisLabelColor = [0.0, 0.0, 0.0]
-line_pointsvtuDisplay.PolarAxes.LastRadialAxisTextColor = [0.0, 0.0, 0.0]
-line_pointsvtuDisplay.PolarAxes.SecondaryRadialAxesTextColor = [0.0, 0.0, 0.0]
-
-# show data from line_pointsvtu_1
-line_pointsvtu_1Display = Show(line_pointsvtu_1, renderView1)
-# trace defaults for the display properties.
-line_pointsvtu_1Display.Representation = 'Outline'
-line_pointsvtu_1Display.AmbientColor = [0.0, 0.0, 0.0]
-line_pointsvtu_1Display.ColorArrayName = [None, '']
-line_pointsvtu_1Display.OSPRayScaleArray = 'uvw'
-line_pointsvtu_1Display.OSPRayScaleFunction = 'PiecewiseFunction'
-line_pointsvtu_1Display.SelectOrientationVectors = 'None'
-line_pointsvtu_1Display.ScaleFactor = 9.9
-line_pointsvtu_1Display.SelectScaleArray = 'None'
-line_pointsvtu_1Display.GlyphType = 'Arrow'
-line_pointsvtu_1Display.GlyphTableIndexArray = 'None'
-line_pointsvtu_1Display.DataAxesGrid = 'GridAxesRepresentation'
-line_pointsvtu_1Display.PolarAxes = 'PolarAxesRepresentation'
-line_pointsvtu_1Display.ScalarOpacityUnitDistance = 12.143339580122927
-line_pointsvtu_1Display.GaussianRadius = 4.95
-line_pointsvtu_1Display.SetScaleArray = [None, '']
-line_pointsvtu_1Display.ScaleTransferFunction = 'PiecewiseFunction'
-line_pointsvtu_1Display.OpacityArray = [None, '']
-line_pointsvtu_1Display.OpacityTransferFunction = 'PiecewiseFunction'
-
-# init the 'GridAxesRepresentation' selected for 'DataAxesGrid'
-line_pointsvtu_1Display.DataAxesGrid.XTitleColor = [0.0, 0.0, 0.0]
-line_pointsvtu_1Display.DataAxesGrid.YTitleColor = [0.0, 0.0, 0.0]
-line_pointsvtu_1Display.DataAxesGrid.ZTitleColor = [0.0, 0.0, 0.0]
-line_pointsvtu_1Display.DataAxesGrid.GridColor = [0.0, 0.0, 0.0]
-line_pointsvtu_1Display.DataAxesGrid.XLabelColor = [0.0, 0.0, 0.0]
-line_pointsvtu_1Display.DataAxesGrid.YLabelColor = [0.0, 0.0, 0.0]
-line_pointsvtu_1Display.DataAxesGrid.ZLabelColor = [0.0, 0.0, 0.0]
-
-# init the 'PolarAxesRepresentation' selected for 'PolarAxes'
-line_pointsvtu_1Display.PolarAxes.PolarAxisTitleColor = [0.0, 0.0, 0.0]
-line_pointsvtu_1Display.PolarAxes.PolarAxisLabelColor = [0.0, 0.0, 0.0]
-line_pointsvtu_1Display.PolarAxes.LastRadialAxisTextColor = [0.0, 0.0, 0.0]
-line_pointsvtu_1Display.PolarAxes.SecondaryRadialAxesTextColor = [0.0, 0.0, 0.0]
-
-# ----------------------------------------------------------------
-# finally, restore active source
-SetActiveSource(line_pointsvtu)
-# ----------------------------------------------------------------
-
-# get active view
-renderView1 = GetActiveViewOrCreate('RenderView')
-# uncomment following to set a specific view size
-renderView1.ViewSize = arg.size
-
-# get animation scene
+# Create animation
 animationScene1 = GetAnimationScene()
-
-
-# Properties modified on animationScene1
 animationScene1.NumberOfFrames = arg.n_frames
+anim = GetCameraTrack(view=view)
 
-# get camera animation track for the view
-anim = GetCameraTrack(view=renderView1)
-
-# create keyframes for orbit
-
-# create a key frame
+# Create keyframes for orbit
+# Create a key frame
 kf1 = CameraKeyFrame()
-kf1.Position = [-95.71686108039174, -98.17259236414577, 69.22792795548338]
+kf1.Position = [-95.71, -98.17, 69.22]
 kf1.FocalPoint = [43.5, 49.5, 19.5]
-kf1.ViewUp = [0.18940931284021836, 0.14829242751435934, 0.9706356000844472]
-kf1.ParallelScale = 68.72226713373185
-kf1.PositionPathPoints = [-95.71690000000001, -98.17259999999999, 69.2279, 73.01206888569389, -155.76811890013633, 45.10162549654929, 219.8620062324982, -61.18621571563145, 1.995415372509516, 235.96435734027435, 115.45394378112583, -28.133544147914108, 109.38149578540495, 243.19854909583086, -22.948871198509778, -66.04320719020684, 227.34295954138818, 13.70572913788314, -160.25703098816464, 79.64186258922804, 54.656031023427396]
+kf1.ViewUp = [0.18, 0.14, 0.97]
+kf1.ParallelScale = 68.72
+kf1.PositionPathPoints = [-95.71, -98.17, 69.22, 73.01, -155.76, 45.10, 219.86,
+                          -61.18, 1.99, 235.96, 115.45, -28.13, 109.38, 243.19,
+                          -22.94, -66.04, 227.34, 13.70, -160.25, 79.64, 54.65]
 kf1.FocalPathPoints = [43.5, 49.5, 19.5]
 kf1.ClosedPositionPath = 1
 
-# create a key frame
+# Create a key frame
 kf2 = CameraKeyFrame()
 kf2.KeyTime = 1.0
-kf2.Position = [-95.71686108039174, -98.17259236414577, 69.22792795548338]
+kf2.Position = [-95.71, -98.17, 69.22]
 kf2.FocalPoint = [43.5, 49.5, 19.5]
-kf2.ViewUp = [0.18940931284021836, 0.14829242751435934, 0.9706356000844472]
-kf2.ParallelScale = 68.72226713373185
+kf2.ViewUp = [0.18, 0.14, 0.97]
+kf2.ParallelScale = 68.72
 
-# initialize the animation track
+# Initialize the animation track
 anim.Mode = 'Path-based'
 anim.KeyFrames = [kf1, kf2]
 
-# current camera placement for renderView1
-renderView1.CameraPosition = [-95.71686108039174, -98.17259236414577, 69.22792795548338]
-renderView1.CameraFocalPoint = [43.5, 49.5, 19.5]
-renderView1.CameraViewUp = [0.18940931284021836, 0.14829242751435934, 0.9706356000844472]
-renderView1.CameraParallelScale = 68.72226713373185
+# Current camera placement for renderView1
+view.CameraPosition = [-95.71, -98.17, 69.22]
+view.CameraFocalPoint = [43.5, 49.5, 19.5]
+view.CameraViewUp = [0.18, 0.14, 0.97]
+view.CameraParallelScale = 68.72
 
 log.info('-----saving output-----')
 file_name = arg.output_filename.split('.')[0]
@@ -262,7 +156,7 @@ file_type = arg.output_filename.split('.')[-1]
 
 if file_type in ['avi', 'mp4', '']:
     log.info('Rendering:\t'+file_name + '.avi')
-    SaveAnimation('large.avi', renderView1, ImageResolution=arg.size,
+    SaveAnimation('large.avi', view, ImageResolution=arg.size,
                   FrameRate=arg.fps, FrameWindow=[0, arg.n_frames-1])
     log.info('Compressing:\t'+file_name + '.avi')
     subprocess.call(['ffmpeg', '-i', 'large.avi', '-c:v', 'libx264', 
@@ -284,11 +178,11 @@ if file_type in ['avi', 'mp4', '']:
     
 elif file_type == 'png':
     log.info('Rendering:\t'+arg.output_filename)
-    SaveScreenshot(arg.output_filename, view=renderView1,
+    SaveScreenshot(arg.output_filename, view=view,
                    magnification=arg.magnification, quality=100)
 else:
     log.info('Rendering:\t'+file_name + '.png')
-    SaveAnimation('test/large.png', renderView1, ImageResolution=arg.size,
+    SaveAnimation('test/large.png', view, ImageResolution=arg.size,
                   FrameRate=arg.fps, FrameWindow=[0, arg.n_frames-1])
 
 if arg.view:
