@@ -114,12 +114,14 @@ intf.load_from_file(file_names=input_files,
                     xs=arg.span[0], ys=arg.span[1], zs=arg.span[2], cal=cal)
 
 # Generate reconstruction mask
+log.info('-----calculating masks-----')
 threshold_mask = np.max(intf.g, axis=-1) > arg.recon_threshold
 sparse_mask = np.zeros(threshold_mask.shape)
 sparse_mask[::arg.skip, ::arg.skip, ::arg.skip] = 1
 mask = np.logical_and(threshold_mask, sparse_mask)
 
 # Reconstruct
+log.info('-----reconstructing distribution field-----')
 x, y, z, u, v, w, r = exp.recon_dist_field(intf, mask=mask, prior=arg.prior)
 
 # # Shuffle data for saving

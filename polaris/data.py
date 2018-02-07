@@ -6,6 +6,36 @@ import matplotlib.cm as cm
 import matplotlib.image as mpimg
 import subprocess
 import scipy.ndimage
+from skimage import io
+import logging
+log = logging.getLogger('cal')
+logr = logging.getLogger('recon')
+
+
+# Opens .tiff and returns array starting at x, y, z with width, height, and
+# slices dimensions. "None" means return the whole dimension.
+# def tiff2array(filename, x=0, y=0, z=0, width=None, height=None, slices=None):
+#     im = io.imread(filename)
+#     shape = im.shape
+#     x_min = x
+#     if width is None:
+#         x_max = shape[2]
+#     else:
+#         x_max = x + width
+#     y_min = y
+#     if height is None:
+#         y_max = shape[1]
+#     else:
+#         y_max = y + height
+#     z_min = z
+#     if slices is None:
+#         z_max = shape[0]
+#     else:
+#         z_max = z + slices
+#     im = im[z_min:z_max, y_min:y_max, x_min:x_max]
+#     im = np.swapaxes(im,0,2)
+#     return im
+
 
 class IntensityField:
     """An IntensityField represents the data collected from a DistributionField.  
@@ -17,10 +47,18 @@ class IntensityField:
     def load_from_file(self, file_names=None, x0=0, y0=0, z0=0,
                        xs=10, ys=10, zs=10, cal=None,
                        angle=-35):
-
-        self.g = np.zeros((xs, ys, zs, len(file_names)), dtype=np.float32)
+        
+        self.g = np.zeros((len(file_names), zs, ys, xs), dtype=np.uint16)
+        ims = []
         for i, file_name in enumerate(file_names):
-            self.g[:,:,:,i] = util.tiff2array(file_name, x=x0, y=y0, z=z0, width=xs, height=ys, slices=zs)/cal[i]
+            logr.info('Loading:\t'+file_name)
+            im = io.imread(file_name)
+            self.g[i,:,:,:] = im[z0:z0+zs, y0:y0+ys, x0:x0+xs]
+
+        # TODO: Recreate the truncation code
+        self.g = np.swapaxes(self.g,0,3)
+        self.g = np.swapaxes(self.g,1,2) # Now in (x, y, z, pol) order
+        logr.info('Normalizing data')
         self.g = self.g/self.g.max()
                 
     def plot(self, output_file='out.pdf', shape=(2, 4),

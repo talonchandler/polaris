@@ -85,6 +85,7 @@ dependencies:
   - pysocks=1.6.7
   - requests=2.18.4
   - ruamel_yaml=0.15.35
+  - tqdm=4.19.4
   - urllib3=1.22
   - pip:
     - pyevtk==1.1.0

@@ -13,3 +13,4 @@ scikit-image==0.13.1
 scipy==0.19.1
 sympy==1.1.1
 tornado==4.5.3
+tqdm=4.19.4

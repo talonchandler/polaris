@@ -6,7 +6,7 @@ import matplotlib
 #from mayavi import mlab
 from scipy.special import sph_harm
 import scipy.misc
-from skimage import io
+
 #import vispy
 #from polaris import visuals
 
@@ -209,29 +209,6 @@ def create_latex_matrix(lhs_string, rhs_string, array, filename):
     subprocess.call(['latexmk', '-cd', filename+'.tex'])
     subprocess.call(['rm', 'temp.csv'])
 
-# Opens .tiff and returns array starting at x, y, z with width, height, and
-# slices dimensions. "None" means return the whole dimension.
-def tiff2array(filename, x=0, y=0, z=0, width=None, height=None, slices=None):
-    im = io.imread(filename)
-    shape = im.shape
-    x_min = x
-    if width is None:
-        x_max = shape[2]
-    else:
-        x_max = x + width
-    y_min = y
-    if height is None:
-        y_max = shape[1]
-    else:
-        y_max = y + height
-    z_min = z
-    if slices is None:
-        z_max = shape[0]
-    else:
-        z_max = z + slices
-    im = im[z_min:z_max, y_min:y_max, x_min:x_max]
-    im = np.swapaxes(im,0,2)
-    return im
 
 # Returns "equally" spaced points on a unit sphere in spherical coordinates.
 # http://stackoverflow.com/a/26127012/5854689

@@ -121,12 +121,10 @@ class MultiMicroscope:
             return d
 
     def recon_dist_field(self, intf, mask=None, prior=None):
-        logr.info('-----reconstructing distribution field-----')
-        logr.info('Voxels num:\t' + str(np.sum(mask)))
+        logr.info('Voxels:\t' + str(np.sum(mask)))
         start = time.time();
         g = intf.g
         if prior is 'single':
-            dist_arr = np.zeros([*g.shape[:-1], self.B.shape[0]])
             mask_idx = np.nonzero(mask)
             x = mask_idx[0]
             y = mask_idx[1]
@@ -135,8 +133,9 @@ class MultiMicroscope:
             v = np.zeros(x.shape)
             w = np.zeros(x.shape)
             r = np.zeros(x.shape)                        
-            j = 1            
-            for i in range(x.shape[0]):
+            j = 1
+            from tqdm import tqdm
+            for i in tqdm(range(x.shape[0])):
                 idx = x[i], y[i], z[i]
                 d = self.recon_dist(g[idx], prior=prior)
                 tp = np.nonzero(d.f)
