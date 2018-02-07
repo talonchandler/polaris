@@ -18,19 +18,10 @@ class IntensityField:
                        xs=10, ys=10, zs=10, cal=None,
                        angle=-35):
 
-        # Rotate and make arrow
-        # im = util.tiff2array(file_names[0], x=x0, y=y0, z=z0, width=xs, height=ys, slices=zs)
-        # im = scipy.ndimage.rotate(im, angle=angle, axes=(0, 2))
-        g = np.zeros((xs, ys, zs, len(file_names)))
-        
+        self.g = np.zeros((xs, ys, zs, len(file_names)), dtype=np.float32)
         for i, file_name in enumerate(file_names):
-            im = util.tiff2array(file_name, x=x0, y=y0, z=z0, width=xs, height=ys, slices=zs)
-            # im = scipy.ndimage.rotate(im, angle=angle, axes=(0, 2))
-            if cal is None:
-                g[:,:,:,i] = im
-            else:
-                g[:,:,:,i] = im/cal[i]
-        self.g = g/g.max()
+            self.g[:,:,:,i] = util.tiff2array(file_name, x=x0, y=y0, z=z0, width=xs, height=ys, slices=zs)/cal[i]
+        self.g = self.g/self.g.max()
                 
     def plot(self, output_file='out.pdf', shape=(2, 4),
              row_labels=None, col_labels=None,
