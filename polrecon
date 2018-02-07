@@ -89,6 +89,7 @@ except:
 exp.n_angle_pts = arg.n_angle_pts
 exp.calc_B_matrix()
 
+log.info('-----preparing for reconstruction-----')
 # Load data into memory
 import numpy as np
 names = ['A_reg_P3.tif', 'A_reg_P4.tif', 'A_reg_P1.tif', 'A_reg_P2.tif',
@@ -107,6 +108,7 @@ cal = cal[idx]
 # Load data from file
 from polaris import data
 intf = data.IntensityField()
+log.info('-----loading data from file-----')
 intf.load_from_file(file_names=input_files,
                     x0=arg.origin[0], y0=arg.origin[1], z0=arg.origin[2],
                     xs=arg.span[0], ys=arg.span[1], zs=arg.span[2], cal=cal)
@@ -118,15 +120,15 @@ sparse_mask[::arg.skip, ::arg.skip, ::arg.skip] = 1
 mask = np.logical_and(threshold_mask, sparse_mask)
 
 # Reconstruct
-df = exp.recon_dist_field(intf, mask=mask, prior=arg.prior)
+x, y, z, u, v, w, r = exp.recon_dist_field(intf, mask=mask, prior=arg.prior)
 
-# Shuffle data for saving
-log.info('-----shuffling data for saving-----')
-x, y, z, tp = np.nonzero(df.f_arr)
-r = df.f_arr[x, y, z, tp]
-u = exp.xyz[tp, 0]
-v = exp.xyz[tp, 1]
-w = exp.xyz[tp, 2]
+# # Shuffle data for saving
+# log.info('-----shuffling data for saving-----')
+# x, y, z, tp = np.nonzero(df.f_arr)
+# r = df.f_arr[x, y, z, tp]
+# u = exp.xyz[tp, 0]
+# v = exp.xyz[tp, 1]
+# w = exp.xyz[tp, 2]
 
 # Save to .vtu file
 from pyevtk.hl import pointsToVTK

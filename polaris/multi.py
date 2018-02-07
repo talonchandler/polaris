@@ -128,16 +128,25 @@ class MultiMicroscope:
         if prior is 'single':
             dist_arr = np.zeros([*g.shape[:-1], self.B.shape[0]])
             mask_idx = np.nonzero(mask)
+            x = mask_idx[0]
+            y = mask_idx[1]
+            z = mask_idx[2]
+            u = np.zeros(x.shape)
+            v = np.zeros(x.shape)
+            w = np.zeros(x.shape)
+            r = np.zeros(x.shape)                        
             j = 1            
-            for i in range(mask_idx[0].shape[0]):
-                # if i % 100 == 0:
-                #     logr.info('Progress:\t'+str(i)+'/'+str(np.sum(mask)))
-                j += 1
-                idx = mask_idx[0][i], mask_idx[1][i], mask_idx[2][i]
+            for i in range(x.shape[0]):
+                idx = x[i], y[i], z[i]
                 d = self.recon_dist(g[idx], prior=prior)
-                dist_arr[idx] = d.f
-            logr.info('Recon time (s):\t'+str(np.round(time.time() - start, 2)))                
-            return dist.DistributionField(f_arr=dist_arr)
+                tp = np.nonzero(d.f)
+                u[i] = self.xyz[tp, 0]
+                v[i] = self.xyz[tp, 1]
+                w[i] = self.xyz[tp, 2]
+                r[i] = d.f[tp]
+
+            logr.info('Recon time (s):\t'+str(np.round(time.time() - start, 2)))
+            return x, y, z, u, v, w, r
         else:
             dist_arr = np.zeros([*g.shape[:-1], self.max_j])
             for i in np.ndindex(g.shape[:-1]):
