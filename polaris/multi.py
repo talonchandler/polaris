@@ -56,8 +56,8 @@ class MultiMicroscope:
         # f = BF, F is max_j x 1, B is n_angle_pts x max_j, f is n_angle_pts x 1
 
         # Find fibonacci points
-        logr.info('-----calculating discrete spherical Fourier transform matrix-----')
-        logr.info('Angles:\t'+ str(self.n_angle_pts))
+        logr.info('-----precomputing angular system matrices and priors-----')
+        logr.info('Angles:\t\t'+ str(self.n_angle_pts))
         pts = util.fibonacci_sphere(self.n_angle_pts)
         B = np.zeros((self.n_angle_pts, self.max_j))
 
@@ -81,6 +81,16 @@ class MultiMicroscope:
         ch = ConvexHull(self.xyz)
         self.triangles = ch.simplices
 
+        # Calculate the full forward model matrix with priors
+        H_model = np.matmul(self.psi, np.linalg.pinv(self.B))
+
+        logr.info('-----computing prior sets-----')
+        # Construct prior set (single directions w/ 10 amplitudes)
+        #f_prior = np.identity(self.B.shape[0])
+        self.f_prior = np.hstack([(x*0.1 + 0.1)*np.identity(self.B.shape[0]) for x in range(10)])
+        g_model = np.matmul(H_model, self.f_prior)
+        self.g_model = g_model/np.max(g_model)
+
     def calc_intensity_dist(self, dist):
         return np.matmul(self.psi, dist.sh)
 
@@ -92,16 +102,10 @@ class MultiMicroscope:
     
     def recon_dist(self, g, prior=None):
         if prior is 'single':
-            # Construct prior set (single directions w/ 10 amplitudes)
-            #f_prior = np.identity(self.B.shape[0])
-            f_prior = np.hstack([(x*0.1 + 0.1)*np.identity(self.B.shape[0]) for x in range(10)])
-            H_model = np.matmul(self.psi, np.linalg.pinv(self.B))
-            g_model = np.matmul(H_model, f_prior)
-            g_model = g_model/np.max(g_model)
-            g_diff = g_model - g[:, np.newaxis]
+            g_diff = self.g_model - g[:, np.newaxis]
             obj = np.linalg.norm(g_diff, ord=2, axis=0)**2
             argmin = np.argmin(obj)
-            f = f_prior[:, argmin]
+            f = self.f_prior[:, argmin]
             d = dist.Distribution(f=f)
             return d
         else:
@@ -118,6 +122,7 @@ class MultiMicroscope:
 
     def recon_dist_field(self, intf, mask=None, prior=None):
         logr.info('-----reconstructing distribution field-----')
+        logr.info('Voxels num:\t' + str(np.sum(mask)))
         start = time.time();
         g = intf.g
         if prior is 'single':
@@ -125,8 +130,8 @@ class MultiMicroscope:
             mask_idx = np.nonzero(mask)
             j = 1            
             for i in range(mask_idx[0].shape[0]):
-                if i % 100 == 0:
-                    logr.info('Progress:\t'+str(i)+'/'+str(np.sum(mask)))
+                # if i % 100 == 0:
+                #     logr.info('Progress:\t'+str(i)+'/'+str(np.sum(mask)))
                 j += 1
                 idx = mask_idx[0][i], mask_idx[1][i], mask_idx[2][i]
                 d = self.recon_dist(g[idx], prior=prior)
