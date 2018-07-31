@@ -25,8 +25,8 @@ class Data:
         self.views = views # V x 3
         self.yscale = 1e-3*vox_dim[1]*self.g.shape[1]
 
-    def save_mips(self, filename='mips.pdf'):
+    def save_mips(self, filename='mips.pdf', normalize=False):
         row_labels = 'View = ' + np.apply_along_axis(util.xyz2str, 1, self.views)
         col_labels = 'Polarizer = ' + np.apply_along_axis(util.xyz2str, 2, self.pols)
         yscale_label = str(self.yscale) + ' $\mu$m'
-        viz.plot5d(filename, self.g, row_labels, col_labels, yscale_label)
+        viz.plot5d(filename, self.g, row_labels, col_labels, yscale_label, normalize=normalize)

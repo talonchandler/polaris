@@ -2,7 +2,7 @@ from polaris import spang, util
 import numpy as np
 
 def curve_phantom(curve, direction, px=(20,20,20), vox_dim=(100,100,100),
-                  cyl_rad=0.2):
+                  cyl_rad=0.2, max_l=6):
     xyz = np.array(np.meshgrid(
         np.linspace(-(px[0]/2)*vox_dim[0], (px[0]/2)*vox_dim[0], px[0]),
         np.linspace(-(px[1]/2)*vox_dim[1], (px[1]/2)*vox_dim[1], px[1]),
@@ -19,15 +19,15 @@ def curve_phantom(curve, direction, px=(20,20,20), vox_dim=(100,100,100),
     mask = min_dist < cyl_rad
     odf = np.einsum('ijkl,ijk->ijkl', min_d, mask)
     
-    f = np.apply_along_axis(util.xyz_sft, 3, odf, max_l=6)
+    f = np.apply_along_axis(util.xyz_sft, 3, odf, max_l=max_l)
     return spang.Spang(f, vox_dim=vox_dim)
 
 def helix_phantom(nt=100, radius=700, pitch=1000, cyl_rad=250,
-                  px=(20,20,20), vox_dim=(100,100,100)):
+                  px=(20,20,20), vox_dim=(100,100,100), max_l=6):
     t = np.linspace(-2*np.pi, 2*np.pi, nt)
     c = np.array([radius*np.cos(t), radius*np.sin(t), pitch*t/(2*np.pi)]).T
     d = np.array([-radius*np.sin(t), radius*np.cos(t), pitch/(2*np.pi) + 0*t]).T
-    return curve_phantom(c, d, cyl_rad=cyl_rad, vox_dim=vox_dim, px=px)
+    return curve_phantom(c, d, cyl_rad=cyl_rad, vox_dim=vox_dim, px=px, max_l=max_l)
 
 def bead(orientation=[1,0,0], uniform=False, px=(21,21,21),
                  vox_dim=(100,100,100)):

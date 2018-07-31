@@ -8,6 +8,7 @@ import matplotlib.gridspec as gridspec
 matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
 import os
 import subprocess
+from tqdm import tqdm
 
 class MultiMicroscope:
     """A MultiMicroscope represents an experiment that collects intensity data 
@@ -63,19 +64,35 @@ class MultiMicroscope:
             dx = np.fft.fftshift(np.fft.fftfreq(self.spang.NX, d=self.data.vox_dim[0]))*self.lamb/self.micros[v].det.na
             dy = np.fft.fftshift(np.fft.fftfreq(self.spang.NY, d=self.data.vox_dim[1]))*self.lamb/self.micros[v].det.na
             dz = np.fft.fftshift(np.fft.fftfreq(self.spang.NZ, d=self.data.vox_dim[2]))*self.lamb/self.micros[v].det.na
-            for x, nux in enumerate(dx):
-                print(x,'/',self.spang.NX)
+            for x, nux in enumerate(tqdm(dx)):
                 for y, nuy in enumerate(dy):
                     for z, nuz in enumerate(dz):
                         H[x,y,z,:,:,v] = self.calc_point_H(nux, nuy, nuz, v, self.data.pols_norm)
-                        
+
         self.H = H/np.max(np.abs(H))
 
+        print('Computing SVD')
+        oldshape = self.H.shape
+        newshape = self.H.shape[0:4] + (self.H.shape[4]*self.H.shape[5],)
+        HH = np.reshape(self.H, newshape)
+        u, s, vh = np.linalg.svd(HH, full_matrices=False)
+
+        # Check svd
+        # HH = np.reshape(u @ (s[...,None] * vh), self.H.shape)
+        mask = np.sum(s, axis=(0,1,2)) > 1e-10  # remove small singular values
+        self.u = u[...,mask]
+        self.s = s[...,mask]
+        self.vh = vh[...,mask,:]
+
     def save_H(self, filename):
-        np.save(filename, self.H)
+        np.savez(filename, H=self.H, u=self.u, s=self.s, vh=self.vh)
         
     def load_H(self, filename):
-        self.H = np.load(filename)
+        files = np.load(filename)
+        self.H = files['H']
+        self.u = files['u']
+        self.s = files['s']
+        self.vh = files['vh']
 
     def plot_H(self, filename='H.pdf', s=0):
         row_labels = 'View = ' + np.apply_along_axis(util.xyz2str, 1, self.data.views)
@@ -83,7 +100,7 @@ class MultiMicroscope:
         yscale_label = str(1/self.data.yscale) + ' $\mu$m${}^{-1}$'
         viz.plot5d(filename, self.H[:,:,:,s,:,:], row_labels, col_labels, yscale_label, force_bwr=True)
 
-    def fwd(self, f):
+    def fwd(self, f, fast=True, snr=None):
         # Truncate spang for angular bandlimit
         f = f[:,:,:,:self.jmax]
         
@@ -92,13 +109,22 @@ class MultiMicroscope:
         Fshift = np.fft.fftshift(F, axes=(0,1,2))
         
         # Tensor multiplication
-        Gshift = np.einsum('ijklmn,ijkl->ijkmn', self.H, Fshift)
+        if fast:
+            outshape = self.H.shape[0:3] + self.H.shape[4:]
+            Gshift = np.reshape(np.einsum('ijklm,ijkl,ijknl,ijkn->ijkm',
+                                          self.vh, self.s, self.u, Fshift), outshape)
+        else:
+            Gshift = np.einsum('ijklmn,ijkl->ijkmn', self.H, Fshift)
         
         # 3D IFT
         G = np.fft.ifftshift(Gshift, axes=(0,1,2))
         g = np.real(np.fft.ifftn(G, axes=(0,1,2)))
-        # g = np.clip(g/np.max(g), 0, 1) # Get rid of small negatives. Necessary?
-        #g = g/np.max(np.abs(g))
+
+        # Apply Poisson noise
+        if snr is not None:
+            norm = snr**2/np.max(g)
+            arr_poisson = np.vectorize(np.random.poisson)
+            g = arr_poisson(g*norm)/norm
 
         return g
 
@@ -113,10 +139,34 @@ class MultiMicroscope:
         # 3D IFT        
         F = np.fft.ifftshift(Fshift, axes=(0,1,2))
         f = np.real(np.fft.ifftn(F, axes=(0,1,2)))
-        # f = f/np.max(np.abs(f))
-        
+
         return f
-                    
+
+    def pinv(self, g, eta=0):
+        # Regularize and truncate singular values
+        sreg = np.where(self.s > 1e-10, self.s/(self.s**2 + eta), 0) 
+        
+        # 3D FT
+        G = np.fft.fftn(g, axes=(0,1,2))
+        Gshift = np.fft.fftshift(G, axes=(0,1,2))
+        
+        # Tensor multiplication
+        Gshift2 = np.reshape(Gshift, G.shape[0:3] + (G.shape[3]*G.shape[4],))
+        Fshift = np.einsum('ijklm,ijkm,ijkmn,ijkn->ijkl',
+                           self.u, sreg, self.vh, Gshift2)
+        
+        # 3D IFT        
+        F = np.fft.ifftshift(Fshift, axes=(0,1,2))
+        f = np.real(np.fft.ifftn(F, axes=(0,1,2)))
+
+        return f
+
+    def pmeas(self, f, eta=0):
+        return self.pinv(self.fwd(f), eta=eta)
+
+    def pnull(self, f):
+        return f - self.pmeas(f) # could be made more efficient
+    
     def calc_SVD(self, n_px=2**6):
         w = 2.0
         self.xcoords = np.linspace(-w, w, n_px),
