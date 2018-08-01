@@ -34,6 +34,14 @@ class Spang:
         self.vox_dim = vox_dim
         self.calc_B()
 
+    def save_tiff(self, filename):
+        # Writes each spherical harmonic to a tiff. Not in use. 
+        print('Writing '+filename)
+        import tifffile
+        for sh in range(self.f.shape[-1]):
+            with tifffile.TiffWriter(filename+str(sh)+'.tiff', bigtiff=True) as tif:
+                tif.save(self.f[...,sh])
+
     def calc_stats(self):
         # Calculate spherical Fourier transform
         # self.odf = np.einsum('ijkl,ml->ijkm', self.f, self.B)
@@ -43,7 +51,7 @@ class Spang:
         self.density = density/np.max(density)
         self.std = np.std(self.odf, axis=-1)
         self.rms = np.sqrt(np.mean(self.odf**2, axis=-1))
-        gfa = np.where(self.rms > 0, self.std/self.rms, 0)
+        gfa = np.where(self.rms > 1e-15, self.std/self.rms, 0)
         self.gfa = np.where(self.density > 0.1, gfa, 0)
 
     def save_mips(self, filename='spang_mips.pdf'):
@@ -179,6 +187,7 @@ class Spang:
             window.show(ren)
 
     def save_summary(self, filename='out.pdf'):
+        print('Generating ' + filename)
         self.calc_stats()
         pos = (-0.05, 1.05, 0.5, 0.55) # Arrow and label positions
         vmin = 0

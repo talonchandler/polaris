@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.special import sph_harm
+from scipy.special import sph_harm, hyp1f1
 
 # SciPy real spherical harmonics with identical interface to SymPy's Znm
 # Useful for fast numerical evaluation of Znm
@@ -24,6 +24,26 @@ def xyz_sft(xyz, max_l=4):
             coeffs.append(spZnm(l, m, tp[0], tp[1]))
     return np.array(coeffs)
 
+# Calculate spherical harmonic coefficients of delta with kappa (Watson dist)
+def xyzk_sft(xyzk, max_l=4, B=None):
+    xyz = xyzk[0:-1]
+    xyz = xyz/np.linalg.norm(xyz)
+    k = xyzk[-1]
+    if k > 10 or k == 0:
+        return xyz_sft(xyzk[0:-1], max_l=max_l)
+    else:
+        from dipy.data import get_sphere
+        sphere = get_sphere('symmetric724')
+        xx = sphere.x
+        yy = sphere.y
+        zz = sphere.z
+        dirs = np.stack([xx, yy, zz], axis=-1)
+
+        # Evaluate Watson distribution
+        watson = np.exp(k*np.dot(dirs, xyz)**2)/(4*np.pi*hyp1f1(0.5, 1.5, k))
+
+        # Return shcoeffs
+        return np.dot(B.T, watson)
 
 # Convert between spherical harmonic indices (l, m) and multi-index (j)
 def j2lm(j):
