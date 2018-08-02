@@ -13,38 +13,6 @@ def spZnm(l, m, theta, phi):
         return  -np.real((sph_harm(m, l, phi, theta) -
                  np.conj(sph_harm(m, l, phi, theta)))/(np.sqrt(2)*1j))
 
-# Calculate spherical harmonic coefficients of delta
-def xyz_sft(xyz, max_l=4):
-    if xyz[0] == 0 and xyz[1] == 0 and xyz[2] == 0:
-        return np.zeros(maxl2maxj(max_l))
-    tp = xyz2tp(xyz[0], xyz[1], xyz[2])
-    coeffs = []
-    for l in range(0, max_l+2, 2):
-        for m in range(-l, l+1):
-            coeffs.append(spZnm(l, m, tp[0], tp[1]))
-    return np.array(coeffs)
-
-# Calculate spherical harmonic coefficients of delta with kappa (Watson dist)
-def xyzk_sft(xyzk, max_l=4, B=None):
-    xyz = xyzk[0:-1]
-    xyz = xyz/np.linalg.norm(xyz)
-    k = xyzk[-1]
-    if k > 10 or k == 0:
-        return xyz_sft(xyzk[0:-1], max_l=max_l)
-    else:
-        from dipy.data import get_sphere
-        sphere = get_sphere('symmetric724')
-        xx = sphere.x
-        yy = sphere.y
-        zz = sphere.z
-        dirs = np.stack([xx, yy, zz], axis=-1)
-
-        # Evaluate Watson distribution
-        watson = np.exp(k*np.dot(dirs, xyz)**2)/(4*np.pi*hyp1f1(0.5, 1.5, k))
-
-        # Return shcoeffs
-        return np.dot(B.T, watson)
-
 # Convert between spherical harmonic indices (l, m) and multi-index (j)
 def j2lm(j):
     if j < 0:
@@ -101,12 +69,6 @@ def j2str(j):
     string += str(l) + '}^{' + str(m) + '}$'
     return np.array(string, dtype=object)
 
-# Absolute max projection
-def absmax(a, axis=None):
-    amax = a.max(axis)
-    amin = a.min(axis)
-    return np.where(-amin > amax, amin, amax)
-
 # Returns "equally" spaced points on a unit sphere in spherical coordinates.
 # http://stackoverflow.com/a/26127012/5854689
 def fibonacci_sphere(n, xyz=False):
@@ -121,3 +83,17 @@ def fibonacci_sphere(n, xyz=False):
 # Kullback-Leibler distance (see Barrett 15.151)
 def kl(g, g0):
     return np.sum(g0 - g + g*np.log(g/g0))
+
+# Simple normalizing function
+def normalize(x):
+    norm = np.linalg.norm(x, axis=-1)
+    if norm == 0:
+        return x
+    else:
+        return x/norm
+
+# Absolute max projection
+def absmax(a, axis=None):
+    amax = a.max(axis)
+    amin = a.min(axis)
+    return np.where(-amin > amax, amin, amax)
