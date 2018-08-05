@@ -57,7 +57,7 @@ class MultiMicroscope:
 
     def calc_H(self):
         H = np.zeros((self.spang.NX, self.spang.NY, self.spang.NZ, self.jmax,
-                      self.data.P, self.data.V))
+                      self.data.P, self.data.V), dtype=np.float32)
 
         print('Computing H')
         for v, view in enumerate(self.data.views):
@@ -65,7 +65,7 @@ class MultiMicroscope:
             dy = np.fft.fftshift(np.fft.fftfreq(self.spang.NY, d=self.data.vox_dim[1]))*self.lamb/self.micros[v].det.na
             dz = np.fft.fftshift(np.fft.fftfreq(self.spang.NZ, d=self.data.vox_dim[2]))*self.lamb/self.micros[v].det.na
             for x, nux in enumerate(tqdm(dx)):
-                for y, nuy in enumerate(dy):
+                for y, nuy in enumerate(tqdm(dy)):
                     for z, nuz in enumerate(dz):
                         H[x,y,z,:,:,v] = self.calc_point_H(nux, nuy, nuz, v, self.data.pols_norm)
 
@@ -126,7 +126,8 @@ class MultiMicroscope:
             arr_poisson = np.vectorize(np.random.poisson)
             g = arr_poisson(g*norm)/norm
 
-        return g
+        # return g
+        return g/np.max(g)
 
     def adj(self, g):
         # 3D FT

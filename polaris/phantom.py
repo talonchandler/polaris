@@ -4,7 +4,8 @@ from scipy.special import hyp1f1
 from dipy.data import get_sphere
 
 def curve_phantom(curve, direction, kappa,
-                  px=(20,20,20), vox_dim=(100,100,100), cyl_rad=0.2, max_l=6):
+                  px=(20,20,20), vox_dim=(100,100,100), cyl_rad=0.2, max_l=6,
+                  dtype=np.float32):
 
     # Setup grid
     xyz = np.array(np.meshgrid(
@@ -31,13 +32,14 @@ def curve_phantom(curve, direction, kappa,
 
     # Cylinder mask
     mask = min_dist < cyl_rad
-    spang1.f = np.einsum('ijkl,ijk->ijkl', watson_sh, mask)
+    spang1.f = np.einsum('ijkl,ijk->ijkl', watson_sh, mask).astype(dtype)
     
     return spang1
 
 def helix_phantom(px=(20,20,20), vox_dim=(100,100,100), max_l=6,
                   trange=(-4*np.pi, 4*np.pi), nt=100, radius=700, pitch=1000,
-                  cyl_rad=250, center=(0,0,0), normal=0, krange=(0,5)):
+                  cyl_rad=250, center=(0,0,0), normal=0, krange=(0,5),
+                  dtype=np.float32):
 
     print('Generating helix')
     t = np.linspace(trange[0], trange[1], nt)
@@ -47,7 +49,7 @@ def helix_phantom(px=(20,20,20), vox_dim=(100,100,100), max_l=6,
     c = np.roll(c, normal, axis=-1) + center # orient and recenter
     d = np.roll(d, normal, axis=-1) # orient
     k = np.linspace(krange[0], krange[1], nt) # watson kappa parameter
-    return curve_phantom(c, d, k, cyl_rad=cyl_rad, vox_dim=vox_dim, px=px, max_l=max_l)
+    return curve_phantom(c, d, k, cyl_rad=cyl_rad, vox_dim=vox_dim, px=px, max_l=max_l, dtype=dtype)
 
 def bead(orientation=[1,0,0], uniform=False, px=(21,21,21),
                  vox_dim=(100,100,100)):
