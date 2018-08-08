@@ -30,11 +30,14 @@ class Data:
 
     def save_mips(self, filename='mips.pdf', normalize=False):
         print('Saving '+filename)
+        if np.min(self.g) < 0:
+            print('Warning: minimum data is ' + str(np.min(self.g)) + '. Truncating negative values.')
+        
         row_labels = 'View = ' + np.apply_along_axis(util.xyz2str, 1, self.views)
         col_labels = 'Polarizer = ' + np.apply_along_axis(util.xyz2str, 2, self.pols)
         self.yscale = 1e-3*self.vox_dim[1]*self.g.shape[1]
         yscale_label = str(self.yscale) + ' $\mu$m'
-        viz.plot5d(filename, self.g, row_labels, col_labels, yscale_label, normalize=normalize)
+        viz.plot5d(filename, self.g.clip(min=0), row_labels, col_labels, yscale_label, normalize=normalize)
 
     def save_tiff(self, folder):
         print('Writing '+folder)
@@ -51,7 +54,7 @@ class Data:
                 with tifffile.TiffWriter(filename, imagej=True) as tw:
                     tw.save(data[None,:,None,:,:,None]) # TZCYXS
 
-    def read_tiff(self, folder, roi=None):
+    def read_tiff(self, folder, roi=None, order=None, cal=None, expected=None):
         for i, view in enumerate(['SPIMA', 'SPIMB']):
             for j in range(4):
                 filename = folder + view + '/' + view + '_reg_' + str(j) + '.tif'
@@ -65,4 +68,10 @@ class Data:
                         self.g = np.zeros(datashape, dtype=np.float32)
                     if data.dtype == np.uint16: # Convert 
                         data = (data/np.iinfo(np.uint16).max).astype(np.float32)
-                    self.g[...,j,i] = np.swapaxes(data, 0, 2)
+                    if order is not None:
+                        jj = order[i][j]
+                    if cal is not None:
+                        # Not confident in this yet
+                        print(str(i) + str(j) + '| ' + str(expected[i,j]/cal[i,jj]))
+                        data = data*expected[i,j]/cal[i,jj]
+                    self.g[...,jj,i] = np.swapaxes(data, 0, 2)

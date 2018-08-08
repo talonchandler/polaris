@@ -45,20 +45,36 @@ class Spang:
             with tifffile.TiffWriter(filename+str(sh)+'.tiff', bigtiff=True) as tif:
                 tif.save(self.f[...,sh])
 
-    def calc_stats(self):
+    def calc_stats(self, mask=None):
         print('Calculating summary statistics')
-        # Calculate spherical Fourier transform
-        # self.odf = np.einsum('ijkl,ml->ijkm', self.f, self.B)
-        odf = np.einsum('ijkl,ml->ijkm', self.f, self.B).clip(min=0)
-        self.odf = odf/np.max(odf) # clipped and normalized
-        density = np.sum(self.odf, axis=-1)
-        self.density = density/np.max(density)
+        density = np.zeros(self.f.shape[0:3])
+        self.gfa = np.zeros(self.f.shape[0:3])
+        self.peak_dirs = np.zeros(self.f.shape[0:3] + (3,))
+        self.peak_values = np.zeros(self.f.shape[0:3])
 
-        # Calculate gfa
-        self.std = np.std(self.odf, axis=-1)
-        self.rms = np.sqrt(np.mean(self.odf**2, axis=-1))
-        self.gfa = np.zeros(self.std.shape)
-        np.divide(self.std, self.rms, out=self.gfa, where=(self.rms != 0))
+        if mask is None:
+            mask = np.ones((self.NX, self.NY, self.NZ))
+        
+        for x in tqdm(range(self.NX)):
+            for y in range(self.NY):
+                for z in range(self.NZ):
+                    index = (x,y,z)                    
+                    if mask[index]:
+                        # Calculate spherical Fourier transform
+                        odf = np.matmul(self.Binv.T, self.f[index]).clip(min=0)
+
+                        # Calculate density
+                        density[index] = np.sum(odf)
+                        self.peak_dirs[index] = self.sphere.vertices[np.argmax(odf)]
+                        self.peak_values[index] = np.amax(odf)
+
+                        # Calculate gfa
+                        std = np.std(odf, axis=-1)
+                        rms = np.sqrt(np.mean(odf**2, axis=-1))
+                        self.gfa[index] = np.divide(std, rms, where=(rms != 0))
+
+        self.density = density/np.max(density)
+        self.maxpeak = np.max(self.peak_values)
 
     def save_mips(self, filename='spang_mips.pdf'):
         col_labels = np.apply_along_axis(util.j2str, 1, np.arange(self.S)[:,None])[None,:]
@@ -82,53 +98,45 @@ class Spang:
 
     def ppos(self):
         # Project onto positive values
+        # TODO is this right? Binv swapped with B?
         odf = np.einsum('ijkl,ml->ijkm', self.f, self.B)
         odf = odf.clip(min=0)
         self.f = np.einsum('ijkl,ml->ijkm', odf, self.Binv)
 
     def visualize(self, out_path='out/', zoom=1.0, outer_box=True, axes=True,
                   clip_neg=False, azimuth=0, elevation=0,
-                  scale=0.5, n_frames=1, size=(600, 600), mag=4, video=True,
-                  viz_type='ODF', interact=False, save_parallels=False):
-
+                  n_frames=1, size=(600, 600), mag=4, video=True,
+                  viz_type='ODF', mask=None, scale=1, zoom_in=0,
+                  interact=False, save_parallels=False):
+        print('Preparing to render ' + out_path)
+        
         # Prepare output
         import os
         if not os.path.exists(out_path):
             os.makedirs(out_path)
-
-        # Calculate spherical Fourier transform
-        odf = np.einsum('ijkl,ml->ijkm', self.f, self.B)
-        if clip_neg:
-            odf = odf.clip(min=0)
             
+        # Mask
+        if mask is None:
+            mask = np.ones(self.density.shape)
+        for x in [-1,0]:
+            for y in [-1,0]:
+                for z in [-1,0]:
+                    mask[x,y,z] = True
+
         # Render
         ren = window.Renderer()
         ren.background([1,1,1])
 
-
-        # kludges for correct color scales
-        if np.max(odf) > np.abs(np.min(odf)):
-            odf = odf/np.max(odf)
-        else:
-            odf = odf/np.abs(np.min(odf))
-        odf[0,0,0,0] = -1
-
-        # Mask
-        mask = np.sum(odf, axis=-1) > 0
-        mask[0,0,0] = True
-
         # Add visuals to renderer
         if viz_type == "ODF":
-            fodf_spheres = viz.odf_slicer(odf, sphere=self.sphere, scale=scale,
+            fodf_spheres = viz.odf_sparse(self.f, self.Binv, self.maxpeak,
+                                          sphere=self.sphere, scale=scale*0.5/self.maxpeak,
                                           norm=False, colormap='bwr', mask=mask,
                                           global_cm=True)
             ren.add(fodf_spheres)
         elif viz_type == "PEAK":
-            max_ind = np.argmax(odf, axis=-1)
-            self.peak_dirs = self.sphere.vertices[max_ind]
-            self.peak_values = 0.5*np.amax(odf, axis=-1)
             fodf_peaks = viz.peak_slicer(self.peak_dirs[:,:,:,None,:],
-                                         self.peak_values[:,:,:,None], mask=mask)
+                                         self.peak_values[:,:,:,None]*scale*0.5/self.maxpeak, mask=mask)
             ren.add(fodf_peaks)
 
         NX = self.NX - 1
@@ -182,7 +190,9 @@ class Spang:
                 writer.SetFileName(out_path + filenames[i] + '.png')
                 writer.Write()
         else:
+            ren.zoom(zoom)
             for i in tqdm(range(n_frames)):
+                ren.zoom(1 + ((zoom_in - zoom)/n_frames))
                 ren.azimuth(az)
                 ren.reset_clipping_range()
                 renderLarge = vtk.vtkRenderLargeImage()
@@ -204,8 +214,9 @@ class Spang:
         if interact:
             window.show(ren)
 
-    def save_summary(self, filename='out.pdf', gfa_filter=None, mag=4):
-        self.calc_stats()
+    def save_summary(self, filename='out.pdf', gfa_filter=None, mag=4,
+                     mask=None, scale=1):
+        # self.calc_stats()
         print('Generating ' + filename)
         pos = (-0.05, 1.05, 0.5, 0.55) # Arrow and label positions
         vmin = 0
@@ -233,12 +244,12 @@ class Spang:
                         viz_type = 'PEAK'
                     
                     self.visualize(out_path='parallels/', zoom=1.7,
-                                   outer_box=True, axes=False,
-                                   clip_neg=True, azimuth=0, elevation=0,
-                                   scale=0.5, n_frames=1, mag=mag, video=False,
+                                   outer_box=False, axes=False,
+                                   clip_neg=False, azimuth=0, elevation=0,
+                                   n_frames=1, mag=mag, video=False, scale=scale,
                                    interact=False, viz_type=viz_type,
-                                   save_parallels=True)
-
+                                   save_parallels=True, mask=mask)
+                                   
                     viz.plot_images(['parallels/yz.png', 'parallels/xy.png', 'parallels/xz.png'],
                                     f, spec, row, col,
                                     col_labels=col_labels, row_labels=None,

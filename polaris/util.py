@@ -13,6 +13,17 @@ def spZnm(l, m, theta, phi):
         return  -np.real((sph_harm(m, l, phi, theta) -
                  np.conj(sph_harm(m, l, phi, theta)))/(np.sqrt(2)*1j))
 
+# Calculate spherical harmonic coefficients of delta
+def xyz_sft(xyz, max_l=4):
+    if xyz[0] == 0 and xyz[1] == 0 and xyz[2] == 0:
+        return np.zeros(maxl2maxj(max_l))
+    tp = xyz2tp(xyz[0], xyz[1], xyz[2])
+    coeffs = []
+    for l in range(0, max_l+2, 2):
+        for m in range(-l, l+1):
+            coeffs.append(spZnm(l, m, tp[0], tp[1]))
+    return np.array(coeffs)
+
 # Convert between spherical harmonic indices (l, m) and multi-index (j)
 def j2lm(j):
     if j < 0:
