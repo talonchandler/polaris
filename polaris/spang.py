@@ -17,9 +17,9 @@ class Spang:
     """
     def __init__(self, f=np.zeros((3,3,3,1)), vox_dim=(1,1,1),
                  sphere=get_sphere('symmetric724')):
-        self.NX = f.shape[0]
-        self.NY = f.shape[1]
-        self.NZ = f.shape[2]
+        self.X = f.shape[0]
+        self.Y = f.shape[1]
+        self.Z = f.shape[2]
         
         # Calculate band dimensions
         self.lmax, mm = util.j2lm(f.shape[-1] - 1)
@@ -36,28 +36,29 @@ class Spang:
         self.vox_dim = vox_dim
         self.sphere = sphere
         self.calc_B()
-
-    def save_tiff(self, filename):
-        # Writes each spherical harmonic to a tiff. Not in use. 
-        print('Writing '+filename)
-        import tifffile
-        for sh in range(self.f.shape[-1]):
-            with tifffile.TiffWriter(filename+str(sh)+'.tiff', bigtiff=True) as tif:
-                tif.save(self.f[...,sh])
+        
+    def calc_B(self):
+        # Calculate odf to sh matrix
+        B = np.zeros((len(self.sphere.theta), self.f.shape[-1]))
+        for index, x in np.ndenumerate(B):
+            l, m = util.j2lm(index[1])
+            B[index] = util.spZnm(l, m, self.sphere.theta[index[0]], self.sphere.phi[index[0]])
+        self.B = B
+        self.Binv = np.linalg.pinv(self.B, rcond=1e-15)
 
     def calc_stats(self, mask=None):
         print('Calculating summary statistics')
-        density = np.zeros(self.f.shape[0:3])
-        self.gfa = np.zeros(self.f.shape[0:3])
-        self.peak_dirs = np.zeros(self.f.shape[0:3] + (3,))
-        self.peak_values = np.zeros(self.f.shape[0:3])
+        density = np.zeros((self.X, self.Y, self.Z))
+        self.gfa = np.zeros((self.X, self.Y, self.Z))
+        self.peak_dirs = np.zeros((self.X, self.Y, self.Z, 3))
+        self.peak_values = np.zeros((self.X, self.Y, self.Z))
 
         if mask is None:
-            mask = np.ones((self.NX, self.NY, self.NZ))
+            mask = np.ones((self.X, self.Y, self.Z))
         
-        for x in tqdm(range(self.NX)):
-            for y in range(self.NY):
-                for z in range(self.NZ):
+        for x in tqdm(range(self.X)):
+            for y in range(self.Y):
+                for z in range(self.Z):
                     index = (x,y,z)                    
                     if mask[index]:
                         # Calculate spherical Fourier transform
@@ -87,15 +88,6 @@ class Spang:
         col_labels = np.apply_along_axis(util.j2str, 1, np.arange(self.S)[:,None])[None,:]
         viz.plot5d(filename, ffts[:,:,:,:,None], col_labels=col_labels)
 
-    def calc_B(self):
-        # Calculate odf to sh matrix
-        B = np.zeros((len(self.sphere.theta), self.f.shape[-1]))
-        for index, x in np.ndenumerate(B):
-            l, m = util.j2lm(index[1])
-            B[index] = util.spZnm(l, m, self.sphere.theta[index[0]], self.sphere.phi[index[0]])
-        self.B = B
-        self.Binv = np.linalg.pinv(self.B, rcond=1e-15)
-
     def ppos(self):
         # Project onto positive values
         # TODO is this right? Binv swapped with B?
@@ -103,11 +95,73 @@ class Spang:
         odf = odf.clip(min=0)
         self.f = np.einsum('ijkl,ml->ijkm', odf, self.Binv)
 
-    def visualize(self, out_path='out/', zoom=1.0, outer_box=True, axes=True,
-                  clip_neg=False, azimuth=0, elevation=0,
-                  n_frames=1, size=(600, 600), mag=4, video=True,
-                  viz_type='ODF', mask=None, scale=1, zoom_in=0,
-                  interact=False, save_parallels=False):
+    def save_summary(self, filename='out.pdf', gfa_filter=None, mag=4,
+                     mask=None, scale=1):
+        print('Generating ' + filename)
+        pos = (-0.05, 1.05, 0.5, 0.55) # Arrow and label positions
+        vmin = 0
+        vmax = 1
+        colormap = 'gray'
+        inches = 2
+        rows = 1
+        cols = 5
+        widths = [1.1]*(cols - 1) + [0.05]
+        heights = [1]*rows
+        if gfa_filter is None:
+            gfa_label = 'GFA'
+        else:
+            gfa_label = 'GFA[Density $>$ ' + str(gfa_filter)+']'
+        col_labels = np.array([['Spatio-angular density', 'Peak', 'Density', gfa_label]])
+        f = plt.figure(figsize=(inches*np.sum(widths), inches*np.sum(heights)))
+        spec = gridspec.GridSpec(ncols=cols, nrows=rows, width_ratios=widths,
+                                 height_ratios=heights, hspace=0.25, wspace=0.15)
+        for row in range(rows):
+            for col in range(cols):
+                if col == 0 or col == 1:
+                    if col == 0:
+                        viz_type = 'ODF'
+                    else:
+                        viz_type = 'PEAK'
+                    
+                    self.visualize(out_path='parallels/', zoom=1.7,
+                                   outer_box=False, axes=False,
+                                   clip_neg=False, azimuth=0, elevation=0,
+                                   n_frames=1, mag=mag, video=False, scale=scale,
+                                   interact=False, viz_type=viz_type,
+                                   save_parallels=True, mask=mask)
+                    
+                    viz.plot_images(['parallels/yz.png', 'parallels/xy.png', 'parallels/xz.png'],
+                                    f, spec, row, col,
+                                    col_labels=col_labels, row_labels=None,
+                                    vmin=vmin, vmax=vmax, colormap=colormap,
+                                    cols=cols, yscale_label=None, pos=pos)
+                    subprocess.call(['rm', '-r', 'parallels'])
+                    
+                elif col == 2:
+                    viz.plot_projections(self.density,
+                                         f, spec, row, col,
+                                         col_labels=col_labels, row_labels=None,
+                                         vmin=vmin, vmax=vmax, colormap=colormap,
+                                         cols=cols, yscale_label=None, pos=pos)
+                elif col == 3:
+                    if gfa_filter is None:
+                        gfa = self.gfa
+                    else:
+                        gfa = self.gfa*(self.density > gfa_filter)
+                    viz.plot_projections(gfa, f, spec, row, col,
+                                         col_labels=col_labels, row_labels=None,
+                                         vmin=vmin, vmax=vmax, colormap=colormap,
+                                         cols=cols, yscale_label=None, pos=pos)
+                elif col == 4:
+                    viz.plot_colorbar(f, spec, row, col, vmin, vmax, colormap)
+
+        print('Saving ' + filename)
+        f.savefig(filename, bbox_inches='tight')
+        
+    def visualize(self, out_path='out/', outer_box=True, axes=True,
+                  clip_neg=False, azimuth=0, elevation=0, n_frames=1,
+                  size=(600,600), mag=4, video=True, viz_type='ODF', mask=None,
+                  scale=1, zoom=1.0, zoom_in=1.0, interact=False, save_parallels=False):
         print('Preparing to render ' + out_path)
         
         # Prepare output
@@ -117,7 +171,7 @@ class Spang:
             
         # Mask
         if mask is None:
-            mask = np.ones(self.density.shape)
+            mask = np.ones((self.X, self.Y, self.Z), dtype=np.bool)
         for x in [-1,0]:
             for y in [-1,0]:
                 for z in [-1,0]:
@@ -139,19 +193,19 @@ class Spang:
                                          self.peak_values[:,:,:,None]*scale*0.5/self.maxpeak, mask=mask)
             ren.add(fodf_peaks)
 
-        NX = self.NX - 1
-        NY = self.NY - 1
-        NZ = self.NZ - 1
+        X = self.X - 1
+        Y = self.Y - 1
+        Z = self.Z - 1
 
         if outer_box:
             c = np.array([0,0,0])
-            ren.add(actor.line([np.array([[0,0,0],[NX,0,0],[NX,NY,0],[0,NY,0],
-                                          [0,0,0],[0,NY,0],[0,NY,NZ],[0,0,NZ],
-                                          [0,0,0],[NX,0,0],[NX,0,NZ],[0,0,NZ]])], colors=c))
-            ren.add(actor.line([np.array([[NX,0,NZ],[NX,NY,NZ],[NX,NY,0],[NX,NY,NZ],
-                                          [0,NY,NZ]])], colors=c))
+            ren.add(actor.line([np.array([[0,0,0],[X,0,0],[X,Y,0],[0,Y,0],
+                                          [0,0,0],[0,Y,0],[0,Y,Z],[0,0,Z],
+                                          [0,0,0],[X,0,0],[X,0,Z],[0,0,Z]])], colors=c))
+            ren.add(actor.line([np.array([[X,0,Z],[X,Y,Z],[X,Y,0],[X,Y,Z],
+                                          [0,Y,Z]])], colors=c))
         if axes:
-            NN = np.max([NX, NY, NZ])
+            NN = np.max([X, Y, Z])
             ren.add(actor.line([np.array([[0,0,0],[NN/10,0,0]])], colors=np.array([1,0,0]), linewidth=4))
             ren.add(actor.line([np.array([[0,0,0],[0,NN/10,0]])], colors=np.array([0,1,0]), linewidth=4))
             ren.add(actor.line([np.array([[0,0,0],[0,0,NN/10]])], colors=np.array([0,0,1]), linewidth=4))
@@ -205,75 +259,21 @@ class Spang:
                 az = naz
 
         # Generate video (requires ffmpeg)
-        fps = np.ceil(n_frames/12)
         if video:
+            print('Generating video from frames')
+            fps = np.ceil(n_frames/12)
             subprocess.call(['ffmpeg', '-nostdin', '-y', '-framerate', str(fps),
                              '-loglevel', 'panic',
-                             '-i', out_path+'%06d.png', out_path[:-1]+'.mp4'])
-        
+                             '-i', out_path+'%06d.png', out_path[:-1]+'.avi'])
         if interact:
             window.show(ren)
 
-    def save_summary(self, filename='out.pdf', gfa_filter=None, mag=4,
-                     mask=None, scale=1):
-        # self.calc_stats()
-        print('Generating ' + filename)
-        pos = (-0.05, 1.05, 0.5, 0.55) # Arrow and label positions
-        vmin = 0
-        vmax = 1
-        colormap = 'gray'
-        inches = 2
-        rows = 1
-        cols = 5
-        widths = [1.1]*(cols - 1) + [0.05]
-        heights = [1]*rows
-        if gfa_filter is None:
-            gfa_label = 'GFA'
-        else:
-            gfa_label = 'GFA[Density $>$ ' + str(gfa_filter)+']'
-        col_labels = np.array([['Spatio-angular density', 'Peak', 'Density', gfa_label]])
-        f = plt.figure(figsize=(inches*np.sum(widths), inches*np.sum(heights)))
-        spec = gridspec.GridSpec(ncols=cols, nrows=rows, width_ratios=widths,
-                                 height_ratios=heights, hspace=0.25, wspace=0.15)
-        for row in range(rows):
-            for col in range(cols):
-                if col == 0 or col == 1:
-                    if col == 0:
-                        viz_type = 'ODF'
-                    else:
-                        viz_type = 'PEAK'
-                    
-                    self.visualize(out_path='parallels/', zoom=1.7,
-                                   outer_box=False, axes=False,
-                                   clip_neg=False, azimuth=0, elevation=0,
-                                   n_frames=1, mag=mag, video=False, scale=scale,
-                                   interact=False, viz_type=viz_type,
-                                   save_parallels=True, mask=mask)
-                                   
-                    viz.plot_images(['parallels/yz.png', 'parallels/xy.png', 'parallels/xz.png'],
-                                    f, spec, row, col,
-                                    col_labels=col_labels, row_labels=None,
-                                    vmin=vmin, vmax=vmax, colormap=colormap,
-                                    cols=cols, yscale_label=None, pos=pos)
-                    # subprocess.call(['rm', '-r', 'parallels'])
-                    
-                elif col == 2:
-                    viz.plot_projections(self.density,
-                                         f, spec, row, col,
-                                         col_labels=col_labels, row_labels=None,
-                                         vmin=vmin, vmax=vmax, colormap=colormap,
-                                         cols=cols, yscale_label=None, pos=pos)
-                elif col == 3:
-                    if gfa_filter is None:
-                        gfa = self.gfa
-                    else:
-                        gfa = self.gfa*(self.density > gfa_filter)
-                    viz.plot_projections(gfa, f, spec, row, col,
-                                         col_labels=col_labels, row_labels=None,
-                                         vmin=vmin, vmax=vmax, colormap=colormap,
-                                         cols=cols, yscale_label=None, pos=pos)
-                elif col == 4:
-                    viz.plot_colorbar(f, spec, row, col, vmin, vmax, colormap)
-
-        print('Saving ' + filename)
-        f.savefig(filename, bbox_inches='tight')
+    def save_tiff(self, filename):
+        # Writes each spherical harmonic to a tiff. Not in use. 
+        print('Writing '+filename)
+        import tifffile
+        for sh in range(self.f.shape[-1]):
+            with tifffile.TiffWriter(filename+str(sh)+'.tiff', bigtiff=True) as tif:
+                tif.save(self.f[...,sh])
+                
+            

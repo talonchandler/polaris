@@ -331,7 +331,6 @@ def peak_slicer(peaks_dirs, peaks_values=None, mask=None, affine=None,
     class PeakSlicerActor(vtk.vtkLODActor):
 
         def display_extent(self, x1, x2, y1, y2, z1, z2):
-
             tmp_mask = np.zeros(grid_shape, dtype=np.bool)
             tmp_mask[x1:x2 + 1, y1:y2 + 1, z1:z2 + 1] = True
             tmp_mask = np.bitwise_and(tmp_mask, mask)

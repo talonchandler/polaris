@@ -11,21 +11,25 @@ class Data:
     """
     def __init__(self, g=np.zeros((10,10,10,4,2), dtype=np.float32),
                  vox_dim=(100,100,100),
+                 ill_nas=2*[0], det_nas=2*[0.8],
+                 ill_optical_axes=[[1,0,0], [0,0,1]],
+                 det_optical_axes=[[0,0,1], [1,0,0]],
                  pols=np.array([[[0,0,-1], [0,1,-1], [0,1,0], [0,1,1]],
-                                [[1,0,0], [1,1,0], [0,1,0], [-1,1,0]]]),
-                 views=np.array([[0,0,1],[1,0,0]])):
+                                [[1,0,0], [1,1,0], [0,1,0], [-1,1,0]]])):
 
-        self.g = g # NX X NY X NZ X P X V
-        self.NX = self.g.shape[0]
-        self.NY = self.g.shape[1]
-        self.NZ = self.g.shape[2]
-        self.P = self.g.shape[3]        
-        self.V = self.g.shape[4]
+        self.g = g
+        self.X = g.shape[0]
+        self.Y = g.shape[1]
+        self.Z = g.shape[2]
+        self.P = g.shape[3]        
+        self.V = g.shape[4]
         self.vox_dim = vox_dim
-
         self.pols = pols
         self.pols_norm = pols/np.linalg.norm(pols, axis=2)[:,:,None] # V X P X 3
-        self.views = views # V x 3
+        self.ill_nas = ill_nas
+        self.det_nas = det_nas
+        self.ill_optical_axes = ill_optical_axes
+        self.det_optical_axes = det_optical_axes
         self.yscale = 1e-3*vox_dim[1]*self.g.shape[1]
 
     def save_mips(self, filename='mips.pdf', normalize=False):
