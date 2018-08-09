@@ -23,32 +23,33 @@ class Spang:
         
         # Calculate band dimensions
         self.lmax, mm = util.j2lm(f.shape[-1] - 1)
-        self.S = util.maxl2maxj(self.lmax)
+        self.J = util.maxl2maxj(self.lmax)
 
         # Fill the rest of the last l band with zeros
-        if f.shape[-1] != self.S:
-            temp = np.zeros((f.shape[0], f.shape[1], f.shape[2], self.S))
-            temp[:,:,:,:f.shape[-1]] = f
+        if f.shape[-1] != self.J:
+            temp = np.zeros((self.X, self.Y, self.Z, self.J))
+            temp[...,:f.shape[-1]] = f
             self.f = temp
         else:
             self.f = f
 
         self.vox_dim = vox_dim
         self.sphere = sphere
+        self.N = len(self.sphere.theta)
         self.calc_B()
         
     def calc_B(self):
         # Calculate odf to sh matrix
-        B = np.zeros((len(self.sphere.theta), self.f.shape[-1]))
-        for index, x in np.ndenumerate(B):
-            l, m = util.j2lm(index[1])
-            B[index] = util.spZnm(l, m, self.sphere.theta[index[0]], self.sphere.phi[index[0]])
+        B = np.zeros((self.N, self.J))
+        for (n, j), x in np.ndenumerate(B):
+            l, m = util.j2lm(j)
+            B[n, j] = util.spZnm(l, m, self.sphere.theta[n], self.sphere.phi[n])
         self.B = B
         self.Binv = np.linalg.pinv(self.B, rcond=1e-15)
 
     def calc_stats(self, mask=None):
         print('Calculating summary statistics')
-        density = np.zeros((self.X, self.Y, self.Z))
+        self.density = np.zeros((self.X, self.Y, self.Z))
         self.gfa = np.zeros((self.X, self.Y, self.Z))
         self.peak_dirs = np.zeros((self.X, self.Y, self.Z, 3))
         self.peak_values = np.zeros((self.X, self.Y, self.Z))
@@ -59,44 +60,25 @@ class Spang:
         for x in tqdm(range(self.X)):
             for y in range(self.Y):
                 for z in range(self.Z):
-                    index = (x,y,z)                    
-                    if mask[index]:
+                    if mask[x,y,z]:
                         # Calculate spherical Fourier transform
-                        odf = np.matmul(self.Binv.T, self.f[index]).clip(min=0)
+                        odf = np.matmul(self.Binv.T, self.f[x,y,z]).clip(min=0)
 
                         # Calculate density
-                        density[index] = np.sum(odf)
-                        self.peak_dirs[index] = self.sphere.vertices[np.argmax(odf)]
-                        self.peak_values[index] = np.amax(odf)
+                        self.density[x,y,z] = np.sum(odf)
+                        self.peak_dirs[x,y,z] = self.sphere.vertices[np.argmax(odf)]
+                        self.peak_values[x,y,z] = np.amax(odf)
 
                         # Calculate gfa
                         std = np.std(odf, axis=-1)
                         rms = np.sqrt(np.mean(odf**2, axis=-1))
-                        self.gfa[index] = np.divide(std, rms, where=(rms != 0))
+                        self.gfa[x,y,z] = np.divide(std, rms, where=(rms != 0))
 
-        self.density = density/np.max(density)
+        self.density = self.density/np.max(self.density)
         self.maxpeak = np.max(self.peak_values)
 
-    def save_mips(self, filename='spang_mips.pdf'):
-        col_labels = np.apply_along_axis(util.j2str, 1, np.arange(self.S)[:,None])[None,:]
-        viz.plot5d(filename, self.f[:,:,:,:,None], col_labels=col_labels)
-
-    def save_fft(self, filename='fft.pdf'):
-        axes = (0,1,2)
-        myfft = np.abs(np.fft.fftn(self.f, axes=axes, norm='ortho'))
-        ffts = np.fft.fftshift(myfft, axes=axes)
-        col_labels = np.apply_along_axis(util.j2str, 1, np.arange(self.S)[:,None])[None,:]
-        viz.plot5d(filename, ffts[:,:,:,:,None], col_labels=col_labels)
-
-    def ppos(self):
-        # Project onto positive values
-        # TODO is this right? Binv swapped with B?
-        odf = np.einsum('ijkl,ml->ijkm', self.f, self.B)
-        odf = odf.clip(min=0)
-        self.f = np.einsum('ijkl,ml->ijkm', odf, self.Binv)
-
     def save_summary(self, filename='out.pdf', gfa_filter=None, mag=4,
-                     mask=None, scale=1):
+                     mask=None, scale=1, keep_parallels=False):
         print('Generating ' + filename)
         pos = (-0.05, 1.05, 0.5, 0.55) # Arrow and label positions
         vmin = 0
@@ -124,7 +106,7 @@ class Spang:
                         viz_type = 'PEAK'
                     
                     self.visualize(out_path='parallels/', zoom=1.7,
-                                   outer_box=False, axes=False,
+                                   outer_box=True, axes=True,
                                    clip_neg=False, azimuth=0, elevation=0,
                                    n_frames=1, mag=mag, video=False, scale=scale,
                                    interact=False, viz_type=viz_type,
@@ -135,23 +117,29 @@ class Spang:
                                     col_labels=col_labels, row_labels=None,
                                     vmin=vmin, vmax=vmax, colormap=colormap,
                                     cols=cols, yscale_label=None, pos=pos)
-                    subprocess.call(['rm', '-r', 'parallels'])
+                    if not keep_parallels:
+                        subprocess.call(['rm', '-r', 'parallels'])
                     
                 elif col == 2:
                     viz.plot_projections(self.density,
                                          f, spec, row, col,
                                          col_labels=col_labels, row_labels=None,
                                          vmin=vmin, vmax=vmax, colormap=colormap,
-                                         cols=cols, yscale_label=None, pos=pos)
+                                         rows=rows, cols=cols, yscale_label=None,
+                                         pos=pos)
                 elif col == 3:
                     if gfa_filter is None:
                         gfa = self.gfa
                     else:
                         gfa = self.gfa*(self.density > gfa_filter)
+                    self.yscale = 1e-3*self.vox_dim[1]*self.X
+                    yscale_label = '{:.2f}'.format(self.yscale) + ' $\mu$m'
                     viz.plot_projections(gfa, f, spec, row, col,
                                          col_labels=col_labels, row_labels=None,
                                          vmin=vmin, vmax=vmax, colormap=colormap,
-                                         cols=cols, yscale_label=None, pos=pos)
+                                         rows=rows, cols=cols,
+                                         yscale_label=yscale_label,
+                                         pos=pos)
                 elif col == 4:
                     viz.plot_colorbar(f, spec, row, col, vmin, vmax, colormap)
 
@@ -160,7 +148,7 @@ class Spang:
         
     def visualize(self, out_path='out/', outer_box=True, axes=True,
                   clip_neg=False, azimuth=0, elevation=0, n_frames=1,
-                  size=(600,600), mag=4, video=True, viz_type='ODF', mask=None,
+                  size=(600,600), mag=4, video=False, viz_type='ODF', mask=None,
                   scale=1, zoom=1.0, zoom_in=1.0, interact=False, save_parallels=False):
         print('Preparing to render ' + out_path)
         
@@ -276,4 +264,6 @@ class Spang:
             with tifffile.TiffWriter(filename+str(sh)+'.tiff', bigtiff=True) as tif:
                 tif.save(self.f[...,sh])
                 
-            
+    def save_mips(self, filename='spang_mips.pdf'):
+        col_labels = np.apply_along_axis(util.j2str, 1, np.arange(self.J)[:,None])[None,:]
+        viz.plot5d(filename, self.f[...,None], col_labels=col_labels)

@@ -36,14 +36,14 @@ def plot5d(filename, data, row_labels=None, col_labels=None, yscale_label=None,
             if col != cols - 1:
                 data3 = data[:,:,:,col,row]
                 plot_projections(data3, f, spec, row, col, col_labels, row_labels,
-                                 vmin, vmax, colormap, cols, yscale_label)
+                                 vmin, vmax, colormap, rows, cols, yscale_label)
             elif col == cols - 1 and row == rows - 1:
                 plot_colorbar(f, spec, row, col, vmin, vmax, colormap)
 
     f.savefig(filename, bbox_inches='tight')
 
 def plot_projections(data3, f, spec, row, col, col_labels, row_labels, vmin, vmax,
-                     colormap, cols, yscale_label, pos=(-0.05, 1.05, 0.5, 0.5)):
+                     colormap, rows, cols, yscale_label, pos=(-0.05, 1.05, 0.5, 0.5)):
     mini_spec = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=spec[row, col], hspace=0.1, wspace=0.1)
     for a in range(2):
         for b in range(2):
@@ -62,9 +62,9 @@ def plot_projections(data3, f, spec, row, col, col_labels, row_labels, vmin, vma
                     data2 = np.ones(data3.shape[0:2])
             ax.imshow(data2, cmap=colormap, vmin=vmin, vmax=vmax, interpolation='none', origin='lower', extent=[-24, 24, -24, 24], aspect=1)
             ax.axis('off')
-            if col == (cols - 2) and row == 0 and a == 0 and b == 1 and yscale_label is not None:
-                ax.annotate(yscale_label, xy=(1.3,0.5), xytext=(1.3, 0.5), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=10, rotation=-90)
-                ax.annotate('', xy=(1.1,0), xytext=(1.1, 1), xycoords='axes fraction', textcoords='axes fraction', va='center', arrowprops=dict(arrowstyle='|-|, widthA=0.2, widthB=0.2', shrinkA=0.05, shrinkB=0.05, lw=0.5))
+            if col == (cols - 2) and row == rows - 1 and a == 1 and b == 1 and yscale_label is not None:
+                ax.annotate(yscale_label, xy=(0.5,-0.3), xytext=(0.5, -0.3), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=10)
+                ax.annotate('', xy=(0, -0.1), xytext=(1.0, -0.1), xycoords='axes fraction', textcoords='axes fraction', va='center', arrowprops=dict(arrowstyle='|-|, widthA=0.2, widthB=0.2', shrinkA=0.05, shrinkB=0.05, lw=0.5))
 
 def plot_images(images, f, spec, row, col, col_labels, row_labels, vmin, vmax,
                 colormap, cols, yscale_label, pos=(-0.05, 1.05, 0.5, 0.5)):
@@ -85,9 +85,9 @@ def plot_images(images, f, spec, row, col, col_labels, row_labels, vmin, vmax,
                 im = misc.imread(image)
                 ax.imshow(im, interpolation='none', origin='upper', extent=[-24, 24, -24, 24], aspect=1)
             ax.axis('off')
-            if col == (cols - 2) and row == 0 and a == 0 and b == 1 and yscale_label is not None:
-                ax.annotate(yscale_label, xy=(1.3,0.5), xytext=(1.3, 0.5), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=10, rotation=-90)
-                ax.annotate('', xy=(1.1,0), xytext=(1.1, 1), xycoords='axes fraction', textcoords='axes fraction', va='center', arrowprops=dict(arrowstyle='|-|, widthA=0.2, widthB=0.2', shrinkA=0.05, shrinkB=0.05, lw=0.5))
+            if col == (cols - 2) and row == rows - 1 and a == 1 and b == 1 and yscale_label is not None:
+                ax.annotate(yscale_label, xy=(0.5,-0.3), xytext=(0.5, -0.3), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=10)
+                ax.annotate('', xy=(0, -0.1), xytext=(1.0, -0.1), xycoords='axes fraction', textcoords='axes fraction', va='center', arrowprops=dict(arrowstyle='|-|, widthA=0.2, widthB=0.2', shrinkA=0.05, shrinkB=0.05, lw=0.5))
                 
 def plot_colorbar(f, spec, row, col, vmin, vmax, colormap):
     ax = f.add_subplot(spec[row, col])
@@ -121,54 +121,7 @@ def draw_annotations(ax, row, col, row_labels, col_labels, pos=(-0.05, 1.05, 0.5
     if col_labels is not None:
         ax.annotate(col_labels[row,col], xy=(xc,yc), xytext=(0, 2.3), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=10)
     if col == 0 and row_labels is not None:
-        ax.annotate(row_labels[row], xy=(xc,yc), xytext=(-1.3, 1), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=10, rotation=90)
-
-# def odf_slicer(odfs, affine=None, mask=None, sphere=None, scale=2.2,
-#                norm=True, radial_scale=True, opacity=1.,
-#                colormap='plasma', global_cm=False):
-#     if mask is None:
-#         mask = np.ones(odfs.shape[:3], dtype=np.bool)
-#     else:
-#         mask = mask.astype(np.bool)
-
-#     szx, szy, szz = odfs.shape[:3]
-
-#     class OdfSlicerActor(vtk.vtkLODActor):
-
-#         def display_extent(self, x1, x2, y1, y2, z1, z2):
-#             tmp_mask = np.zeros(odfs.shape[:3], dtype=np.bool)
-#             tmp_mask[x1:x2 + 1, y1:y2 + 1, z1:z2 + 1] = True
-#             tmp_mask = np.bitwise_and(tmp_mask, mask)
-
-#             self.mapper = actor._odf_slicer_mapper(odfs=odfs,
-#                                              affine=affine,
-#                                              mask=tmp_mask,
-#                                              sphere=sphere,
-#                                              scale=scale,
-#                                              norm=norm,
-#                                              radial_scale=radial_scale,
-#                                              opacity=opacity,
-#                                              colormap=colormap,
-#                                              global_cm=global_cm)
-#             self.SetMapper(self.mapper)
-
-#         def display(self, x=None, y=None, z=None):
-#             if x is None and y is None and z is None:
-#                 self.display_extent(0, szx - 1, 0, szy - 1, 0, szz - 1)
-#                 # self.display_extent(0, szx - 1, 0, szy - 1,
-#                 #                     int(np.floor(szz/2)), int(np.floor(szz/2)))
-
-#             if x is not None:
-#                 self.display_extent(x, x, 0, szy - 1, 0, szz - 1)
-#             if y is not None:
-#                 self.display_extent(0, szx - 1, y, y, 0, szz - 1)
-#             if z is not None:
-#                 self.display_extent(0, szx - 1, 0, szy - 1, z, z)
-
-#     odf_actor = OdfSlicerActor()
-#     odf_actor.display_extent(0, szx - 1, 0, szy - 1, 0, szz - 1)
-
-#     return odf_actor
+        ax.annotate(row_labels[row], xy=(xc,yc), xytext=(-1.55, 1), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=10, rotation=90)
 
 def odf_sparse(odfsh, Binv, globalpeak, affine=None, mask=None, sphere=None, scale=2.2,
                norm=True, radial_scale=True, opacity=1.,
@@ -203,8 +156,6 @@ def odf_sparse(odfsh, Binv, globalpeak, affine=None, mask=None, sphere=None, sca
         def display(self, x=None, y=None, z=None):
             if x is None and y is None and z is None:
                 self.display_extent(0, szx - 1, 0, szy - 1, 0, szz - 1)
-                # self.display_extent(0, szx - 1, 0, szy - 1,
-                #                     int(np.floor(szz/2)), int(np.floor(szz/2)))
 
             if x is not None:
                 self.display_extent(x, x, 0, szy - 1, 0, szz - 1)

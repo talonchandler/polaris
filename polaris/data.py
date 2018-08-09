@@ -30,17 +30,16 @@ class Data:
         self.det_nas = det_nas
         self.ill_optical_axes = ill_optical_axes
         self.det_optical_axes = det_optical_axes
-        self.yscale = 1e-3*vox_dim[1]*self.g.shape[1]
 
     def save_mips(self, filename='mips.pdf', normalize=False):
         print('Saving '+filename)
         if np.min(self.g) < 0:
             print('Warning: minimum data is ' + str(np.min(self.g)) + '. Truncating negative values.')
-        
-        row_labels = 'View = ' + np.apply_along_axis(util.xyz2str, 1, self.views)
+
+        row_labels = 'Illumination axis = ' + np.apply_along_axis(util.xyz2str, 1, self.ill_optical_axes) + '\n Detection axis = ' + np.apply_along_axis(util.xyz2str, 1, self.det_optical_axes) + '\n NA = ' + util.f2str(self.det_nas)
         col_labels = 'Polarizer = ' + np.apply_along_axis(util.xyz2str, 2, self.pols)
-        self.yscale = 1e-3*self.vox_dim[1]*self.g.shape[1]
-        yscale_label = str(self.yscale) + ' $\mu$m'
+        self.yscale = 1e-3*self.vox_dim[1]*self.X
+        yscale_label = '{:.2f}'.format(self.yscale) + ' $\mu$m'
         viz.plot5d(filename, self.g.clip(min=0), row_labels, col_labels, yscale_label, normalize=normalize)
 
     def save_tiff(self, folder):
@@ -67,7 +66,7 @@ class Data:
                     data = tf.asarray() # ZYX
                     if roi is not None: # Crop
                         data = data[roi[2,0]:roi[2,1], roi[1,0]:roi[1,1], roi[0,0]:roi[0,1]]
-                    if self.g.shape[0] != data.shape[2]: # Make g
+                    if self.g.shape[0] != data.shape[2]: # Make g with correct shape
                         datashape = (data.shape[2], data.shape[1], data.shape[0], self.pols.shape[1], self.pols.shape[0])
                         self.g = np.zeros(datashape, dtype=np.float32)
                     if data.dtype == np.uint16: # Convert 

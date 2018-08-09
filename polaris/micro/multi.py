@@ -26,7 +26,7 @@ class MultiMicroscope:
         self.X = spang.X
         self.Y = spang.Y
         self.Z = spang.Z
-        self.S = spang.S
+        self.J = spang.J
         self.P = data.P                
         self.V = data.V
         
@@ -60,7 +60,7 @@ class MultiMicroscope:
         return out # return s x p
 
     def calc_H(self):
-        Hxy = np.zeros((self.X, self.Y, self.S, self.P, self.V), dtype=np.float32)
+        Hxy = np.zeros((self.X, self.Y, self.J, self.P, self.V), dtype=np.float32)
 
         print('Computing H')
         for v in range(self.V):
@@ -99,7 +99,7 @@ class MultiMicroscope:
         F = np.fft.fftn(f, axes=(0,1,2))
         
         # Tensor multiplication
-        G = np.zeros(self.data.shape, dtype=np.complex64)
+        G = np.zeros(self.data.g.shape, dtype=np.complex64)
         for x in tqdm(range(self.X)):
             for y in range(self.Y):
                 for z in range(self.Z):
@@ -121,7 +121,7 @@ class MultiMicroscope:
     def fwd_angular(self, f, snr=None, mask=None):
         print('Applying angular forward operator')
         g = np.zeros(self.data.g.shape)
-        H = np.zeros((self.S, self.P, self.V))
+        H = np.zeros((self.J, self.P, self.V))
         H[:,:,0] = self.calc_point_H(0, 0, 0, 0, self.data.pols_norm)
         H[:,:,1] = self.calc_point_H(0, 0, 0, 1, self.data.pols_norm)
 
@@ -145,14 +145,14 @@ class MultiMicroscope:
         G2 = np.reshape(G, (self.X, self.Y, self.Z, self.P*self.V))
         
         # Tensor multiplication
-        F = np.zeros((self.X, self.Y, self.Z, self.S), dtype=np.complex64)
+        F = np.zeros((self.X, self.Y, self.Z, self.J), dtype=np.complex64)
         for x in tqdm(range(self.X)):
             for y in range(self.Y):
                 for z in range(self.Z):
                     # Generate H and order it properly
                     H0 = self.Hz[z]*self.Hxy[x,y,:,:,0] 
                     H1 = self.Hz[x]*self.Hxy[y,z,:,:,1]
-                    HH = np.reshape(np.stack((H0, H1), axis=-1), (self.S, self.P*self.V)) 
+                    HH = np.reshape(np.stack((H0, H1), axis=-1), (self.J, self.P*self.V)) 
                     u, s, vh = np.linalg.svd(HH, full_matrices=False) # Find SVD
                     sreg = np.where(s > 1e-7, s/(s**2 + eta), 0) # Regularize
                     F[x,y,z,:] = np.einsum('lm,m,mn,n->l', u, sreg, vh, G2[x,y,z,:]) # Apply Pinv
@@ -165,7 +165,7 @@ class MultiMicroscope:
     def pinv_angular(self, g, eta=0, mask=None):
         print('Applying pseudoinverse operator')
         f = np.zeros(self.spang.f.shape)
-        H = np.zeros((self.S, self.P, self.V))
+        H = np.zeros((self.J, self.P, self.V))
         H[:,:,0] = self.calc_point_H(0, 0, 0, 0, self.data.pols_norm)
         H[:,:,1] = self.calc_point_H(0, 0, 0, 1, self.data.pols_norm)
         HH = np.reshape(H, (S, P*V))

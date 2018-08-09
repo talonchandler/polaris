@@ -73,6 +73,13 @@ def xyz2str(xyz):
     string += '$'
     return np.array(string, dtype=object)
 
+# Convert float to string for plots
+def f2str(f):
+    out = []
+    for i, element in enumerate(f):
+        out.append('$' + str(element) + '$')
+    return np.array(out, dtype=object)
+
 # Convert j to string for plots
 def j2str(j):
     string = '$y_{'
