@@ -7,6 +7,7 @@ from dipy.viz import window, actor
 from dipy.data import get_sphere
 import vtk
 from tqdm import tqdm
+import tifffile
 
 class Spang:
     """
@@ -256,14 +257,18 @@ class Spang:
         if interact:
             window.show(ren)
 
-    def save_tiff(self, filename):
-        # Writes each spherical harmonic to a tiff. Not in use. 
-        print('Writing '+filename)
-        import tifffile
-        for sh in range(self.f.shape[-1]):
-            with tifffile.TiffWriter(filename+str(sh)+'.tiff', bigtiff=True) as tif:
-                tif.save(self.f[...,sh])
-                
     def save_mips(self, filename='spang_mips.pdf'):
+        print('Writing '+filename)
         col_labels = np.apply_along_axis(util.j2str, 1, np.arange(self.J)[:,None])[None,:]
         viz.plot5d(filename, self.f[...,None], col_labels=col_labels)
+            
+    def save_tiff(self, filename):
+        # Writes each spherical harmonic to a tiff. 
+        print('Writing '+filename)
+        with tifffile.TiffWriter(filename, imagej=True) as tif:
+            data = np.moveaxis(self.f, [2, 3, 1, 0], [0, 1, 2, 3])
+            tif.save(data[None,:,:,:,:]) # TZCYXS
+                
+    def read_tiff(self, filename):
+        with tifffile.TiffFile(filename) as tf:
+            self.f = np.moveaxis(tf.asarray(), [0, 1, 2, 3], [2, 3, 1, 0])
