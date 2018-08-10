@@ -168,7 +168,7 @@ class MultiMicroscope:
         H = np.zeros((self.J, self.P, self.V))
         H[:,:,0] = self.calc_point_H(0, 0, 0, 0, self.data.pols_norm)
         H[:,:,1] = self.calc_point_H(0, 0, 0, 1, self.data.pols_norm)
-        HH = np.reshape(H, (S, P*V))
+        HH = np.reshape(H, (self.J, self.P*self.V))
         u, s, vh = np.linalg.svd(HH, full_matrices=False) # Find SVD
         sreg = np.where(s > 1e-7, s/(s**2 + eta), 0) # Regularize
         M = np.einsum('lm,m,mn->ln', u, sreg, vh)

@@ -67,7 +67,7 @@ def plot_projections(data3, f, spec, row, col, col_labels, row_labels, vmin, vma
                 ax.annotate('', xy=(0, -0.1), xytext=(1.0, -0.1), xycoords='axes fraction', textcoords='axes fraction', va='center', arrowprops=dict(arrowstyle='|-|, widthA=0.2, widthB=0.2', shrinkA=0.05, shrinkB=0.05, lw=0.5))
 
 def plot_images(images, f, spec, row, col, col_labels, row_labels, vmin, vmax,
-                colormap, cols, yscale_label, pos=(-0.05, 1.05, 0.5, 0.5)):
+                colormap, rows, cols, yscale_label, pos=(-0.05, 1.05, 0.5, 0.5)):
     mini_spec = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=spec[row, col], hspace=0.1, wspace=0.1)
     for a in range(2):
         for b in range(2):

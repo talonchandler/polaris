@@ -98,49 +98,47 @@ class Spang:
         f = plt.figure(figsize=(inches*np.sum(widths), inches*np.sum(heights)))
         spec = gridspec.GridSpec(ncols=cols, nrows=rows, width_ratios=widths,
                                  height_ratios=heights, hspace=0.25, wspace=0.15)
+        viz_types = ['ODF', 'PEAK', 'DENSITY', 'GFA']
         for row in range(rows):
             for col in range(cols):
-                if col == 0 or col == 1:
-                    if col == 0:
-                        viz_type = 'ODF'
-                    else:
-                        viz_type = 'PEAK'
-                    
+                if col < 4:
+                    yscale_label = None
+                    if col == 3:
+                        if gfa_filter is None:
+                            gfa = self.gfa
+                        else:
+                            gfa = self.gfa*(self.density > gfa_filter)
+                            self.yscale = 1e-3*self.vox_dim[1]*self.X
+                            yscale_label = '{:.2f}'.format(self.yscale) + ' $\mu$m'
+
                     self.visualize(out_path='parallels/', zoom=1.7,
-                                   outer_box=True, axes=True,
+                                   outer_box=False, axes=False,
                                    clip_neg=False, azimuth=0, elevation=0,
                                    n_frames=1, mag=mag, video=False, scale=scale,
-                                   interact=False, viz_type=viz_type,
+                                   interact=False, viz_type=viz_types[col],
                                    save_parallels=True, mask=mask)
                     
                     viz.plot_images(['parallels/yz.png', 'parallels/xy.png', 'parallels/xz.png'],
                                     f, spec, row, col,
                                     col_labels=col_labels, row_labels=None,
                                     vmin=vmin, vmax=vmax, colormap=colormap,
-                                    cols=cols, yscale_label=None, pos=pos)
+                                    rows=rows, cols=cols, yscale_label=yscale_label, pos=pos)
                     if not keep_parallels:
                         subprocess.call(['rm', '-r', 'parallels'])
                     
-                elif col == 2:
-                    viz.plot_projections(self.density,
-                                         f, spec, row, col,
-                                         col_labels=col_labels, row_labels=None,
-                                         vmin=vmin, vmax=vmax, colormap=colormap,
-                                         rows=rows, cols=cols, yscale_label=None,
-                                         pos=pos)
-                elif col == 3:
-                    if gfa_filter is None:
-                        gfa = self.gfa
-                    else:
-                        gfa = self.gfa*(self.density > gfa_filter)
-                    self.yscale = 1e-3*self.vox_dim[1]*self.X
-                    yscale_label = '{:.2f}'.format(self.yscale) + ' $\mu$m'
-                    viz.plot_projections(gfa, f, spec, row, col,
-                                         col_labels=col_labels, row_labels=None,
-                                         vmin=vmin, vmax=vmax, colormap=colormap,
-                                         rows=rows, cols=cols,
-                                         yscale_label=yscale_label,
-                                         pos=pos)
+                # elif col == 3:
+                    # if gfa_filter is None:
+                    #     gfa = self.gfa
+                    # else:
+                    #     gfa = self.gfa*(self.density > gfa_filter)
+                    # self.yscale = 1e-3*self.vox_dim[1]*self.X
+                    # yscale_label = '{:.2f}'.format(self.yscale) + ' $\mu$m'
+                    # viz.plot_projections(gfa, f, spec, row, col,
+                    #                      col_labels=col_labels, row_labels=None,
+                    #                      vmin=vmin, vmax=vmax, colormap=colormap,
+                    #                      rows=rows, cols=cols,
+                    #                      yscale_label=yscale_label,
+                    #                      pos=pos)
                 elif col == 4:
                     viz.plot_colorbar(f, spec, row, col, vmin, vmax, colormap)
 
@@ -181,6 +179,30 @@ class Spang:
             fodf_peaks = viz.peak_slicer(self.peak_dirs[:,:,:,None,:],
                                          self.peak_values[:,:,:,None]*scale*0.5/self.maxpeak, mask=mask)
             ren.add(fodf_peaks)
+        elif viz_type == "DENSITY" or viz_type == "GFA":
+            if viz_type == "DENSITY":
+                scalars = self.density
+            if viz_type == "GFA":
+                scalars = self.gfa
+            data = np.zeros(scalars.shape)
+
+            # X MIP
+            data[data.shape[0]//2,:,:] = np.max(scalars, axis=0)
+            slice_actorx = actor.slicer(data, value_range=(0,1), interpolation='nearest')
+            slice_actorx.display(slice_actorx.shape[0]//2, None, None)
+            ren.add(slice_actorx)
+
+            # Y MIP
+            data[:,data.shape[1]//2,:] = np.max(scalars, axis=1)
+            slice_actory = actor.slicer(data, value_range=(0,1), interpolation='nearest')
+            slice_actory.display(None, slice_actory.shape[1]//2, None)
+            ren.add(slice_actory)
+
+            # Z MIP
+            data[:,:,data.shape[2]//2] = np.max(scalars, axis=-1)
+            slice_actorz = actor.slicer(data, value_range=(0,1), interpolation='nearest')
+            slice_actorz.display(None, None, slice_actorz.shape[2]//2)
+            ren.add(slice_actorz)
 
         X = self.X - 1
         Y = self.Y - 1
@@ -193,8 +215,13 @@ class Spang:
                                           [0,0,0],[X,0,0],[X,0,Z],[0,0,Z]])], colors=c))
             ren.add(actor.line([np.array([[X,0,Z],[X,Y,Z],[X,Y,0],[X,Y,Z],
                                           [0,Y,Z]])], colors=c))
+        NN = np.max([X, Y, Z])
+        # Add invisible actors to set FOV
+        ren.add(actor.line([np.array([[0,0,0],[NN,0,0]])], colors=np.array([1,1,1]), linewidth=1))
+        ren.add(actor.line([np.array([[0,0,0],[0,NN,0]])], colors=np.array([1,1,1]), linewidth=1))
+        ren.add(actor.line([np.array([[0,0,0],[0,0,NN]])], colors=np.array([1,1,1]), linewidth=1))
+        # Add colored axes
         if axes:
-            NN = np.max([X, Y, Z])
             ren.add(actor.line([np.array([[0,0,0],[NN/10,0,0]])], colors=np.array([1,0,0]), linewidth=4))
             ren.add(actor.line([np.array([[0,0,0],[0,NN/10,0]])], colors=np.array([0,1,0]), linewidth=4))
             ren.add(actor.line([np.array([[0,0,0],[0,0,NN/10]])], colors=np.array([0,0,1]), linewidth=4))
