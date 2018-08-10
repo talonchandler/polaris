@@ -60,33 +60,44 @@ class MultiMicroscope:
         return out # return s x p
 
     def calc_H(self):
-        Hxy = np.zeros((self.X, self.Y, self.J, self.P, self.V), dtype=np.float32)
+        # Transverse transfer function
+        self.Hxy = np.zeros((self.X, self.Y, self.J, self.P), dtype=np.float32)
+        self.Hyz = np.zeros((self.Y, self.Z, self.J, self.P), dtype=np.float32)
 
-        print('Computing H')
-        for v in range(self.V):
-            dx = np.fft.fftshift(np.fft.fftfreq(self.X, d=self.data.vox_dim[0]))*self.lamb/self.micros[v].det.na
-            dy = np.fft.fftshift(np.fft.fftfreq(self.Y, d=self.data.vox_dim[1]))*self.lamb/self.micros[v].det.na
-            for x, nux in enumerate(tqdm(dx)):
-                for y, nuy in enumerate(dy):
-                    if v == 0:
-                        Hxy[x,y,:,:,v] = self.calc_point_H(nux, nuy, 0, v, self.data.pols_norm)
-                    if v == 1: 
-                        Hxy[x,y,:,:,v] = self.calc_point_H(0, nuy, nux, v, self.data.pols_norm)
-        self.Hxy = Hxy/np.max(np.abs(Hxy))
+        print('Computing H for view 0')
+        dx = np.fft.fftshift(np.fft.fftfreq(self.X, d=self.data.vox_dim[0]))*self.lamb/self.micros[0].det.na
+        dy = np.fft.fftshift(np.fft.fftfreq(self.Y, d=self.data.vox_dim[1]))*self.lamb/self.micros[0].det.na
+        dz = np.fft.fftshift(np.fft.fftfreq(self.Z, d=self.data.vox_dim[2]))*self.lamb/self.micros[0].det.na
+        for x, nux in enumerate(tqdm(dx)):
+            for y, nuy in enumerate(dy):
+                self.Hxy[x,y,:,:] = self.calc_point_H(nux, nuy, 0, 0, self.data.pols_norm)
+        self.Hxy = self.Hxy/np.max(np.abs(self.Hxy))
+        self.Hz = np.exp(-(dz**2)/(2*(self.sigma_ax**2)))                
 
-        dz = np.fft.fftshift(np.fft.fftfreq(self.Z, d=self.data.vox_dim[2]))*self.lamb/self.micros[v].det.na
-        self.Hz = np.exp(-(dz**2)/(2*(self.sigma_ax**2)))
+        print('Computing H for view 1')
+        dx = np.fft.fftshift(np.fft.fftfreq(self.X, d=self.data.vox_dim[0]))*self.lamb/self.micros[1].det.na
+        dy = np.fft.fftshift(np.fft.fftfreq(self.Y, d=self.data.vox_dim[1]))*self.lamb/self.micros[1].det.na
+        dz = np.fft.fftshift(np.fft.fftfreq(self.Z, d=self.data.vox_dim[2]))*self.lamb/self.micros[1].det.na
+        for y, nuy in enumerate(tqdm(dy)):
+            for z, nuz in enumerate(dz):
+                self.Hyz[y,z,:,:] = self.calc_point_H(0, nuy, nuz, 1, self.data.pols_norm)
+        self.Hyz = self.Hyz/np.max(np.abs(self.Hyz))
+        self.Hx = np.exp(-(dx**2)/(2*(self.sigma_ax**2)))
 
-        # Shift H instead of shifting F and G  
+        # Shift H instead of shifting F and G
         self.Hxy = np.fft.fftshift(self.Hxy, axes=(0,1))
+        self.Hyz = np.fft.fftshift(self.Hyz, axes=(0,1))
+        self.Hx = np.fft.fftshift(self.Hx)
         self.Hz = np.fft.fftshift(self.Hz)
 
     def save_H(self, filename):
-        np.savez(filename, Hxy=self.Hxy, Hz=self.Hz)
+        np.savez(filename, Hxy=self.Hxy, Hyz=self.Hyz, Hx=self.Hx, Hz=self.Hz)
         
     def load_H(self, filename):
         files = np.load(filename)
         self.Hxy = files['Hxy']
+        self.Hyz = files['Hyz']
+        self.Hx = files['Hx']        
         self.Hz = files['Hz']
         
     def fwd(self, f, snr=None):
@@ -103,8 +114,8 @@ class MultiMicroscope:
         for x in tqdm(range(self.X)):
             for y in range(self.Y):
                 for z in range(self.Z):
-                    G[x,y,z,:,0] = self.Hz[z]*np.einsum('sp,s->p', self.Hxy[x,y,:,:,0], F[x,y,z])
-                    G[x,y,z,:,1] = self.Hz[x]*np.einsum('sp,s->p', self.Hxy[y,z,:,:,1], F[x,y,z])
+                    G[x,y,z,:,0] = self.Hz[z]*np.einsum('sp,s->p', self.Hxy[x,y,:,:], F[x,y,z])
+                    G[x,y,z,:,1] = self.Hx[x]*np.einsum('sp,s->p', self.Hyz[y,z,:,:], F[x,y,z])
             
         # 3D IFT
         g = np.real(np.fft.ifftn(G, axes=(0,1,2)))
@@ -150,8 +161,8 @@ class MultiMicroscope:
             for y in range(self.Y):
                 for z in range(self.Z):
                     # Generate H and order it properly
-                    H0 = self.Hz[z]*self.Hxy[x,y,:,:,0] 
-                    H1 = self.Hz[x]*self.Hxy[y,z,:,:,1]
+                    H0 = self.Hz[z]*self.Hxy[x,y,:,:] 
+                    H1 = self.Hx[x]*self.Hxy[y,z,:,:]
                     HH = np.reshape(np.stack((H0, H1), axis=-1), (self.J, self.P*self.V)) 
                     u, s, vh = np.linalg.svd(HH, full_matrices=False) # Find SVD
                     sreg = np.where(s > 1e-7, s/(s**2 + eta), 0) # Regularize
