@@ -2,9 +2,11 @@ from polaris import util, viz, data, spang
 from polaris.micro import ill, det, micro
 from polaris.harmonics import shcoeffs
 import numpy as np
+np.seterr(divide='ignore', invalid='ignore')
 import matplotlib.pyplot as plt
 import matplotlib
 import matplotlib.gridspec as gridspec
+
 matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
 import os
 import subprocess
@@ -65,31 +67,62 @@ class MultiMicroscope:
         self.Hyz = np.zeros((self.Y, self.Z, self.J, self.P), dtype=np.float32)
 
         print('Computing H for view 0')
-        dx = np.fft.fftshift(np.fft.fftfreq(self.X, d=self.data.vox_dim[0]))*self.lamb/self.micros[0].det.na
-        dy = np.fft.fftshift(np.fft.fftfreq(self.Y, d=self.data.vox_dim[1]))*self.lamb/self.micros[0].det.na
-        dz = np.fft.fftshift(np.fft.fftfreq(self.Z, d=self.data.vox_dim[2]))*self.lamb/self.micros[0].det.na
+        dx = np.fft.fftfreq(self.X, d=self.data.vox_dim[0])*self.lamb/self.micros[0].det.na
+        dy = np.fft.fftfreq(self.Y, d=self.data.vox_dim[1])*self.lamb/self.micros[0].det.na
+        dz = np.fft.fftfreq(self.Z, d=self.data.vox_dim[2])*self.lamb/self.micros[0].det.na
         for x, nux in enumerate(tqdm(dx)):
             for y, nuy in enumerate(dy):
                 self.Hxy[x,y,:,:] = self.calc_point_H(nux, nuy, 0, 0, self.data.pols_norm)
         self.Hxy = self.Hxy/np.max(np.abs(self.Hxy))
-        self.Hz = np.exp(-(dz**2)/(2*(self.sigma_ax**2)))                
+        if self.micros[0].spang_coupling:
+            self.Hz = np.exp(-(dz**2)/(2*(self.sigma_ax**2)), dtype=np.float32)
+        else:
+            self.Hz = np.ones(dz.shape, dtype=np.float32)
 
         print('Computing H for view 1')
-        dx = np.fft.fftshift(np.fft.fftfreq(self.X, d=self.data.vox_dim[0]))*self.lamb/self.micros[1].det.na
-        dy = np.fft.fftshift(np.fft.fftfreq(self.Y, d=self.data.vox_dim[1]))*self.lamb/self.micros[1].det.na
-        dz = np.fft.fftshift(np.fft.fftfreq(self.Z, d=self.data.vox_dim[2]))*self.lamb/self.micros[1].det.na
+        dx = np.fft.fftfreq(self.X, d=self.data.vox_dim[0])*self.lamb/self.micros[1].det.na
+        dy = np.fft.fftfreq(self.Y, d=self.data.vox_dim[1])*self.lamb/self.micros[1].det.na
+        dz = np.fft.fftfreq(self.Z, d=self.data.vox_dim[2])*self.lamb/self.micros[1].det.na
         for y, nuy in enumerate(tqdm(dy)):
             for z, nuz in enumerate(dz):
                 self.Hyz[y,z,:,:] = self.calc_point_H(0, nuy, nuz, 1, self.data.pols_norm)
         self.Hyz = self.Hyz/np.max(np.abs(self.Hyz))
-        self.Hx = np.exp(-(dx**2)/(2*(self.sigma_ax**2)))
+        if self.micros[0].spang_coupling:
+            self.Hx = np.exp(-(dx**2)/(2*(self.sigma_ax**2)))
+        else:
+            self.Hx = np.ones(dx.shape)
 
-        # Shift H instead of shifting F and G
-        self.Hxy = np.fft.fftshift(self.Hxy, axes=(0,1))
-        self.Hyz = np.fft.fftshift(self.Hyz, axes=(0,1))
-        self.Hx = np.fft.fftshift(self.Hx)
-        self.Hz = np.fft.fftshift(self.Hz)
+    def calc_H2(self):
+        # Transverse transfer function
 
+        print('Computing H for view 0')
+        dx = np.fft.fftfreq(self.X, d=self.data.vox_dim[0])*self.lamb/self.micros[0].det.na
+        dy = np.fft.fftfreq(self.Y, d=self.data.vox_dim[1])*self.lamb/self.micros[0].det.na
+        dz = np.fft.rfftfreq(self.Z, d=self.data.vox_dim[2])*self.lamb/self.micros[0].det.na
+        self.Hxy = np.zeros((dx.shape[0], dy.shape[0], self.J, self.P), dtype=np.float32)
+        for x, nux in enumerate(tqdm(dx)):
+            for y, nuy in enumerate(dy):
+                self.Hxy[x,y,:,:] = self.calc_point_H(nux, nuy, 0, 0, self.data.pols_norm)
+        self.Hxy = self.Hxy/np.max(np.abs(self.Hxy))
+        if self.micros[0].spang_coupling:
+            self.Hz = np.exp(-(dz**2)/(2*(self.sigma_ax**2)), dtype=np.float32)
+        else:
+            self.Hz = np.ones(dz.shape, dtype=np.float32)
+
+        print('Computing H for view 1')
+        dx = np.fft.fftfreq(self.X, d=self.data.vox_dim[0])*self.lamb/self.micros[1].det.na
+        dy = np.fft.fftfreq(self.Y, d=self.data.vox_dim[1])*self.lamb/self.micros[1].det.na
+        dz = np.fft.rfftfreq(self.Z, d=self.data.vox_dim[2])*self.lamb/self.micros[1].det.na
+        self.Hyz = np.zeros((dy.shape[0], dz.shape[0], self.J, self.P), dtype=np.float32)
+        for y, nuy in enumerate(tqdm(dy)):
+            for z, nuz in enumerate(dz):
+                self.Hyz[y,z,:,:] = self.calc_point_H(0, nuy, nuz, 1, self.data.pols_norm)
+        self.Hyz = self.Hyz/np.max(np.abs(self.Hyz))
+        if self.micros[0].spang_coupling:
+            self.Hx = np.exp(-(dx**2)/(2*(self.sigma_ax**2)))
+        else:
+            self.Hx = np.ones(dx.shape)
+            
     def save_H(self, filename):
         np.savez(filename, Hxy=self.Hxy, Hyz=self.Hyz, Hx=self.Hx, Hz=self.Hz)
         
@@ -105,21 +138,22 @@ class MultiMicroscope:
 
         # Truncate spang for angular bandlimit
         f = f[:,:,:,:self.jmax]
-        
+
         # 3D FT
         F = np.fft.fftn(f, axes=(0,1,2))
-        
+
         # Tensor multiplication
         G = np.zeros(self.data.g.shape, dtype=np.complex64)
         for x in tqdm(range(self.X)):
             for y in range(self.Y):
-                for z in range(self.Z):
-                    G[x,y,z,:,0] = self.Hz[z]*np.einsum('sp,s->p', self.Hxy[x,y,:,:], F[x,y,z])
-                    G[x,y,z,:,1] = self.Hx[x]*np.einsum('sp,s->p', self.Hyz[y,z,:,:], F[x,y,z])
-            
+                G[x,y,:,:,0] = np.einsum('z,sp,zs->zp', self.Hz, self.Hxy[x,y,:,:], F[x,y,:,:])
+        for y in tqdm(range(self.Y)):
+            for z in range(self.Z):
+                G[:,y,z,:,1] = np.einsum('x,sp,xs->xp', self.Hx, self.Hyz[y,z,:,:], F[:,y,z,:])
+
         # 3D IFT
         g = np.real(np.fft.ifftn(G, axes=(0,1,2)))
-
+        
         # Apply Poisson noise
         if snr is not None:
             norm = snr**2/np.max(g)
@@ -129,6 +163,37 @@ class MultiMicroscope:
         # return g
         return g/np.max(g)
 
+    def fwd2(self, f, snr=None):
+        print('Applying forward operator')
+
+        # Truncate spang for angular bandlimit
+        f = f[:,:,:,:self.jmax]
+
+        # 3D FT
+        F = np.fft.rfftn(f, axes=(0,1,2))
+
+        # Tensor multiplication
+        G = np.zeros(F.shape[0:3] + self.data.g.shape[3:], dtype=np.complex64)
+        for x in tqdm(range(G.shape[0])):
+            for y in range(G.shape[1]):
+                G[x,y,:,:,0] = np.einsum('z,sp,zs->zp', self.Hz, self.Hxy[x,y,:,:], F[x,y,:,:])
+        for y in tqdm(range(G.shape[1])):
+            for z in range(G.shape[2]):
+                G[:,y,z,:,1] = np.einsum('x,sp,xs->xp', self.Hx, self.Hyz[y,z,:,:], F[:,y,z,:])
+
+        # 3D IFT
+        g = np.fft.irfftn(G, axes=(0,1,2))
+        import pdb; pdb.set_trace() 
+        
+        # Apply Poisson noise
+        if snr is not None:
+            norm = snr**2/np.max(g)
+            arr_poisson = np.vectorize(np.random.poisson)
+            g = arr_poisson(g*norm)/norm
+
+        # return g
+        return g/np.max(g)
+    
     def fwd_angular(self, f, snr=None, mask=None):
         print('Applying angular forward operator')
         g = np.zeros(self.data.g.shape)
@@ -155,20 +220,26 @@ class MultiMicroscope:
         G = np.fft.fftn(g, axes=(0,1,2))
         G2 = np.reshape(G, (self.X, self.Y, self.Z, self.P*self.V))
         
-        # Tensor multiplication
-        F = np.zeros((self.X, self.Y, self.Z, self.J), dtype=np.complex64)
-        for x in tqdm(range(self.X)):
-            for y in range(self.Y):
-                for z in range(self.Z):
-                    # Generate H and order it properly
-                    H0 = self.Hz[z]*self.Hxy[x,y,:,:] 
-                    H1 = self.Hx[x]*self.Hxy[y,z,:,:]
-                    HH = np.reshape(np.stack((H0, H1), axis=-1), (self.J, self.P*self.V)) 
-                    u, s, vh = np.linalg.svd(HH, full_matrices=False) # Find SVD
-                    sreg = np.where(s > 1e-7, s/(s**2 + eta), 0) # Regularize
-                    F[x,y,z,:] = np.einsum('lm,m,mn,n->l', u, sreg, vh, G2[x,y,z,:]) # Apply Pinv
+        # Full SVD Tensor multiplication baseline
+        # F = np.zeros((self.X, self.Y, self.Z, self.J), dtype=np.complex64)
+        # for x in tqdm(range(self.X)):
+        #     # Generate H and order it properly
+        #     H0 = np.einsum('z,ysp->yzsp', self.Hz, self.Hxy[x,:,:,:], optimize=True)
+        #     H1 = self.Hx[x]*self.Hyz[:,:,:,:]
+        #     HH = np.reshape(np.stack((H0, H1), axis=-1), (self.Y, self.Z, self.J, self.P*self.V))
+        #     u, s, vh = np.linalg.svd(HH, full_matrices=False) # Find SVD
+        #     sreg = np.where(s > 1e-7, s/(s**2 + eta), 0) # Regularize
+        #     F[x,:,:,:] = np.einsum('yzlm,yzm,yzmn,yzn->yzl', u, sreg, vh, G2[x,:,:,:], optimize=True) # Apply Pinv
         
-        # 3D IFT        
+        from multiprocessing import Pool
+        pool = Pool(processes=4)
+        args = []
+        for x in range(self.X):
+            args.append((x, G2[x,:,:,:], self.Hxy[x,:,:,:], self.Hyz, self.Hx, self.Hz, self.Y, self.Z, self.J, self.P, self.V, eta))
+        result = list(tqdm(pool.imap(compute_pinv, args), total=len(args)))
+        F = np.array(result)
+        
+        # 3D IFT
         f = np.real(np.fft.ifftn(F, axes=(0,1,2)))
 
         return f
@@ -203,3 +274,13 @@ class MultiMicroscope:
 
     def pnull(self, f):
         return f - self.pmeas(f) # could be made more efficient
+
+
+def compute_pinv(args):
+    x, G, Hxy, Hyz, Hx, Hz, Y, Z, J, P, V, eta = args
+    H0 = np.einsum('z,ysp->yzsp', Hz, Hxy)
+    H1 = Hx[x]*Hyz
+    HH = np.reshape(np.stack((H0, H1), axis=-1), (Y, Z, J, P*V))
+    u, s, vh = np.linalg.svd(HH, full_matrices=False) # Find SVD
+    sreg = np.where(s > 1e-7, s/(s**2 + eta), 0) # Regularize
+    return np.einsum('yzlm,yzm,yzmn,yzn->yzl', u, sreg, vh, G, optimize=True) # Apply Pinv

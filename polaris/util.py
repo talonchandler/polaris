@@ -115,3 +115,10 @@ def absmax(a, axis=None):
     amax = a.max(axis)
     amin = a.min(axis)
     return np.where(-amin > amax, amin, amax)
+
+# Return size of rfft from size of input
+def rfftlen(ind):
+    if ind % 2 == 0:
+        return int((ind/2) + 1)
+    else:
+        return int((ind + 1)/2)
