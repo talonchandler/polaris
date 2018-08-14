@@ -63,37 +63,6 @@ class MultiMicroscope:
 
     def calc_H(self):
         # Transverse transfer function
-        self.Hxy = np.zeros((self.X, self.Y, self.J, self.P), dtype=np.float32)
-        self.Hyz = np.zeros((self.Y, self.Z, self.J, self.P), dtype=np.float32)
-
-        print('Computing H for view 0')
-        dx = np.fft.fftfreq(self.X, d=self.data.vox_dim[0])*self.lamb/self.micros[0].det.na
-        dy = np.fft.fftfreq(self.Y, d=self.data.vox_dim[1])*self.lamb/self.micros[0].det.na
-        dz = np.fft.fftfreq(self.Z, d=self.data.vox_dim[2])*self.lamb/self.micros[0].det.na
-        for x, nux in enumerate(tqdm(dx)):
-            for y, nuy in enumerate(dy):
-                self.Hxy[x,y,:,:] = self.calc_point_H(nux, nuy, 0, 0, self.data.pols_norm)
-        self.Hxy = self.Hxy/np.max(np.abs(self.Hxy))
-        if self.micros[0].spang_coupling:
-            self.Hz = np.exp(-(dz**2)/(2*(self.sigma_ax**2)), dtype=np.float32)
-        else:
-            self.Hz = np.ones(dz.shape, dtype=np.float32)
-
-        print('Computing H for view 1')
-        dx = np.fft.fftfreq(self.X, d=self.data.vox_dim[0])*self.lamb/self.micros[1].det.na
-        dy = np.fft.fftfreq(self.Y, d=self.data.vox_dim[1])*self.lamb/self.micros[1].det.na
-        dz = np.fft.fftfreq(self.Z, d=self.data.vox_dim[2])*self.lamb/self.micros[1].det.na
-        for y, nuy in enumerate(tqdm(dy)):
-            for z, nuz in enumerate(dz):
-                self.Hyz[y,z,:,:] = self.calc_point_H(0, nuy, nuz, 1, self.data.pols_norm)
-        self.Hyz = self.Hyz/np.max(np.abs(self.Hyz))
-        if self.micros[0].spang_coupling:
-            self.Hx = np.exp(-(dx**2)/(2*(self.sigma_ax**2)))
-        else:
-            self.Hx = np.ones(dx.shape)
-
-    def calc_H2(self):
-        # Transverse transfer function
         print('Computing H for view 0')
         dx = np.fft.rfftfreq(self.X, d=self.data.vox_dim[0])*self.lamb/self.micros[0].det.na
         dy = np.fft.rfftfreq(self.Y, d=self.data.vox_dim[1])*self.lamb/self.micros[0].det.na
@@ -133,36 +102,6 @@ class MultiMicroscope:
         self.Hz = files['Hz']
         
     def fwd(self, f, snr=None):
-        print('Applying forward operator')
-
-        # Truncate spang for angular bandlimit
-        f = f[:,:,:,:self.jmax]
-
-        # 3D FT
-        F = np.fft.fftn(f, axes=(0,1,2))
-
-        # Tensor multiplication
-        G = np.zeros(self.data.g.shape, dtype=np.complex64)
-        for x in tqdm(range(self.X)):
-            for y in range(self.Y):
-                G[x,y,:,:,0] = np.einsum('z,sp,zs->zp', self.Hz, self.Hxy[x,y,:,:], F[x,y,:,:])
-        for y in tqdm(range(self.Y)):
-            for z in range(self.Z):
-                G[:,y,z,:,1] = np.einsum('x,sp,xs->xp', self.Hx, self.Hyz[y,z,:,:], F[:,y,z,:])
-
-        # 3D IFT
-        g = np.real(np.fft.ifftn(G, axes=(0,1,2)))
-        
-        # Apply Poisson noise
-        if snr is not None:
-            norm = snr**2/np.max(g)
-            arr_poisson = np.vectorize(np.random.poisson)
-            g = arr_poisson(g*norm)/norm
-
-        # return g
-        return g/np.max(g)
-
-    def fwd2(self, f, snr=None):
         print('Applying forward operator')
 
         # Truncate spang for angular bandlimit
@@ -221,39 +160,8 @@ class MultiMicroscope:
                     if mask[x,y,z]:
                         g[x,y,z,:,:] = np.einsum('spv,s->pv', H, f[x,y,z,:])
         return g/np.max(g)
-    
+
     def pinv(self, g, eta=0):
-        print('Applying pseudoinverse operator')
-        
-        # 3D FT
-        G = np.fft.fftn(g, axes=(0,1,2))
-        G2 = np.reshape(G, (self.X, self.Y, self.Z, self.P*self.V))
-        
-        # Full SVD Tensor multiplication baseline
-        F = np.zeros((self.X, self.Y, self.Z, self.J), dtype=np.complex64)
-        for x in tqdm(range(self.X)):
-            # Generate H and order it properly
-            H0 = np.einsum('z,ysp->yzsp', self.Hz, self.Hxy[x,:,:,:], optimize=True)
-            H1 = self.Hx[x]*self.Hyz[:,:,:,:]
-            HH = np.reshape(np.stack((H0, H1), axis=-1), (self.Y, self.Z, self.J, self.P*self.V))
-            u, s, vh = np.linalg.svd(HH, full_matrices=False) # Find SVD
-            sreg = np.where(s > 1e-7, s/(s**2 + eta), 0) # Regularize
-            F[x,:,:,:] = np.einsum('yzlm,yzm,yzmn,yzn->yzl', u, sreg, vh, G2[x,:,:,:], optimize=True) # Apply Pinv
-        
-        # from multiprocessing import Pool
-        # pool = Pool(processes=4)
-        # args = []
-        # for x in range(self.X):
-        #     args.append((x, G2[x,:,:,:], self.Hxy[x,:,:,:], self.Hyz, self.Hx, self.Hz, self.Y, self.Z, self.J, self.P, self.V, eta))
-        # result = list(tqdm(pool.imap(compute_pinv, args), total=len(args)))
-        # F = np.array(result)
-        
-        # 3D IFT
-        f = np.real(np.fft.ifftn(F, axes=(0,1,2)))
-
-        return f
-
-    def pinv2(self, g, eta=0):
         print('Applying pseudoinverse operator')
         
         # 3D FT
@@ -283,7 +191,7 @@ class MultiMicroscope:
         args = []
         for z in range(self.Hz.shape[0]):
             args.append((z, G2[:,:,z,:], self.Hxy, self.Hyz[:,z,:,:], self.Hx, self.Hz, self.X, self.Y, self.J, self.P, self.V, eta, xstart, xend, ystart, yend))
-        result = list(tqdm(pool.imap(compute_pinv2, args), total=len(args)))
+        result = list(tqdm(pool.imap(compute_pinv, args), total=len(args)))
         F = np.array(result)
         
         # 3D IFT
@@ -322,17 +230,7 @@ class MultiMicroscope:
     def pnull(self, f):
         return f - self.pmeas(f) # could be made more efficient
 
-
 def compute_pinv(args):
-    x, G, Hxy, Hyz, Hx, Hz, Y, Z, J, P, V, eta = args
-    H0 = np.einsum('z,ysp->yzsp', Hz, Hxy)
-    H1 = Hx[x]*Hyz
-    HH = np.reshape(np.stack((H0, H1), axis=-1), (Y, Z, J, P*V))
-    u, s, vh = np.linalg.svd(HH, full_matrices=False) # Find SVD
-    sreg = np.where(s > 1e-7, s/(s**2 + eta), 0) # Regularize
-    return np.einsum('yzlm,yzm,yzmn,yzn->yzl', u, sreg, vh, G, optimize=True) # Apply Pinv
-
-def compute_pinv2(args):
     z, G2, Hxy, Hyz, Hx, Hz, X, Y, J, P, V, eta, xstart, xend, ystart, yend = args
     H0 = Hz[z]*Hxy[:,:,:,:]
     H1 = np.einsum('x,ysp->xysp', Hx, Hyz[:,:,:])

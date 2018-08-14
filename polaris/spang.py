@@ -59,21 +59,18 @@ class Spang:
             mask = np.ones((self.X, self.Y, self.Z))
         
         for x in tqdm(range(self.X)):
-            for y in range(self.Y):
-                for z in range(self.Z):
-                    if mask[x,y,z]:
-                        # Calculate spherical Fourier transform
-                        odf = np.matmul(self.Binv.T, self.f[x,y,z]).clip(min=0)
+            # Calculate spherical Fourier transform
+            odf = np.einsum('as,yzs->yza', self.Binv.T, self.f[x,:,:]).clip(min=0)
 
-                        # Calculate density
-                        self.density[x,y,z] = np.sum(odf)
-                        self.peak_dirs[x,y,z] = self.sphere.vertices[np.argmax(odf)]
-                        self.peak_values[x,y,z] = np.amax(odf)
+            # Calculate density
+            self.density[x,:,:] = np.sum(odf, axis=-1)
+            self.peak_dirs[x,:,:,:] = self.sphere.vertices[np.argmax(odf, axis=-1)]
+            self.peak_values[x,:,:] = np.amax(odf, axis=-1)
 
-                        # Calculate gfa
-                        std = np.std(odf, axis=-1)
-                        rms = np.sqrt(np.mean(odf**2, axis=-1))
-                        self.gfa[x,y,z] = np.divide(std, rms, where=(rms != 0))
+            # Calculate gfa
+            std = np.std(odf, axis=-1)
+            rms = np.sqrt(np.mean(odf**2, axis=-1))
+            self.gfa[x,:,:] = np.divide(std, rms, where=(rms != 0))
 
         self.density = self.density/np.max(self.density)
         self.maxpeak = np.max(self.peak_values)
