@@ -94,10 +94,9 @@ class MultiMicroscope:
 
     def calc_H2(self):
         # Transverse transfer function
-
         print('Computing H for view 0')
-        dx = np.fft.fftfreq(self.X, d=self.data.vox_dim[0])*self.lamb/self.micros[0].det.na
-        dy = np.fft.fftfreq(self.Y, d=self.data.vox_dim[1])*self.lamb/self.micros[0].det.na
+        dx = np.fft.rfftfreq(self.X, d=self.data.vox_dim[0])*self.lamb/self.micros[0].det.na
+        dy = np.fft.rfftfreq(self.Y, d=self.data.vox_dim[1])*self.lamb/self.micros[0].det.na
         dz = np.fft.rfftfreq(self.Z, d=self.data.vox_dim[2])*self.lamb/self.micros[0].det.na
         self.Hxy = np.zeros((dx.shape[0], dy.shape[0], self.J, self.P), dtype=np.float32)
         for x, nux in enumerate(tqdm(dx)):
@@ -110,8 +109,8 @@ class MultiMicroscope:
             self.Hz = np.ones(dz.shape, dtype=np.float32)
 
         print('Computing H for view 1')
-        dx = np.fft.fftfreq(self.X, d=self.data.vox_dim[0])*self.lamb/self.micros[1].det.na
-        dy = np.fft.fftfreq(self.Y, d=self.data.vox_dim[1])*self.lamb/self.micros[1].det.na
+        dx = np.fft.rfftfreq(self.X, d=self.data.vox_dim[0])*self.lamb/self.micros[1].det.na
+        dy = np.fft.rfftfreq(self.Y, d=self.data.vox_dim[1])*self.lamb/self.micros[1].det.na
         dz = np.fft.rfftfreq(self.Z, d=self.data.vox_dim[2])*self.lamb/self.micros[1].det.na
         self.Hyz = np.zeros((dy.shape[0], dz.shape[0], self.J, self.P), dtype=np.float32)
         for y, nuy in enumerate(tqdm(dy)):
@@ -174,16 +173,26 @@ class MultiMicroscope:
 
         # Tensor multiplication
         G = np.zeros(F.shape[0:3] + self.data.g.shape[3:], dtype=np.complex64)
-        for x in tqdm(range(G.shape[0])):
-            for y in range(G.shape[1]):
-                G[x,y,:,:,0] = np.einsum('z,sp,zs->zp', self.Hz, self.Hxy[x,y,:,:], F[x,y,:,:])
-        for y in tqdm(range(G.shape[1])):
-            for z in range(G.shape[2]):
-                G[:,y,z,:,1] = np.einsum('x,sp,xs->xp', self.Hx, self.Hyz[y,z,:,:], F[:,y,z,:])
+        for x in tqdm(range(self.Hxy.shape[0])):
+            for y in range(self.Hxy.shape[1]):
+                Hzsp = np.einsum('z,sp->zsp', self.Hz, self.Hxy[x,y,:,:])
+                G[x,y,:,:,0] = np.einsum('zsp,zs->zp', Hzsp, F[x,y,:,:])
+                G[-x,y,:,:,0] = np.einsum('zsp,zs->zp', Hzsp, F[-x,y,:,:])
+                G[x,-y,:,:,0] = np.einsum('zsp,zs->zp', Hzsp, F[x,-y,:,:])
+                G[-x,-y,:,:,0] = np.einsum('zsp,zs->zp', Hzsp, F[-x,-y,:,:])
+
+        start = slice(0, (self.X//2)+1)
+        end = slice(None, -(self.X//2), -1)
+        for y in tqdm(range(self.Hyz.shape[0])):
+            for z in range(self.Hyz.shape[1]):
+                Hxsp = np.einsum('x,sp->xsp', self.Hx, self.Hyz[y,z,:,:])
+                G[start,y,z,:,1] = np.einsum('xsp,xs->xp', Hxsp, F[start,y,z,:])
+                G[end,y,z,:,1] = np.einsum('xsp,xs->xp', Hxsp[1:-1], F[end,y,z,:])
+                G[start,-y,z,:,1] = np.einsum('xsp,xs->xp', Hxsp, F[start,-y,z,:])
+                G[end,-y,z,:,1] = np.einsum('xsp,xs->xp', Hxsp[1:-1], F[end,-y,z,:])
 
         # 3D IFT
         g = np.fft.irfftn(G, axes=(0,1,2))
-        import pdb; pdb.set_trace() 
         
         # Apply Poisson noise
         if snr is not None:
@@ -221,29 +230,67 @@ class MultiMicroscope:
         G2 = np.reshape(G, (self.X, self.Y, self.Z, self.P*self.V))
         
         # Full SVD Tensor multiplication baseline
-        # F = np.zeros((self.X, self.Y, self.Z, self.J), dtype=np.complex64)
-        # for x in tqdm(range(self.X)):
-        #     # Generate H and order it properly
-        #     H0 = np.einsum('z,ysp->yzsp', self.Hz, self.Hxy[x,:,:,:], optimize=True)
-        #     H1 = self.Hx[x]*self.Hyz[:,:,:,:]
-        #     HH = np.reshape(np.stack((H0, H1), axis=-1), (self.Y, self.Z, self.J, self.P*self.V))
-        #     u, s, vh = np.linalg.svd(HH, full_matrices=False) # Find SVD
-        #     sreg = np.where(s > 1e-7, s/(s**2 + eta), 0) # Regularize
-        #     F[x,:,:,:] = np.einsum('yzlm,yzm,yzmn,yzn->yzl', u, sreg, vh, G2[x,:,:,:], optimize=True) # Apply Pinv
+        F = np.zeros((self.X, self.Y, self.Z, self.J), dtype=np.complex64)
+        for x in tqdm(range(self.X)):
+            # Generate H and order it properly
+            H0 = np.einsum('z,ysp->yzsp', self.Hz, self.Hxy[x,:,:,:], optimize=True)
+            H1 = self.Hx[x]*self.Hyz[:,:,:,:]
+            HH = np.reshape(np.stack((H0, H1), axis=-1), (self.Y, self.Z, self.J, self.P*self.V))
+            u, s, vh = np.linalg.svd(HH, full_matrices=False) # Find SVD
+            sreg = np.where(s > 1e-7, s/(s**2 + eta), 0) # Regularize
+            F[x,:,:,:] = np.einsum('yzlm,yzm,yzmn,yzn->yzl', u, sreg, vh, G2[x,:,:,:], optimize=True) # Apply Pinv
         
-        from multiprocessing import Pool
-        pool = Pool(processes=4)
-        args = []
-        for x in range(self.X):
-            args.append((x, G2[x,:,:,:], self.Hxy[x,:,:,:], self.Hyz, self.Hx, self.Hz, self.Y, self.Z, self.J, self.P, self.V, eta))
-        result = list(tqdm(pool.imap(compute_pinv, args), total=len(args)))
-        F = np.array(result)
+        # from multiprocessing import Pool
+        # pool = Pool(processes=4)
+        # args = []
+        # for x in range(self.X):
+        #     args.append((x, G2[x,:,:,:], self.Hxy[x,:,:,:], self.Hyz, self.Hx, self.Hz, self.Y, self.Z, self.J, self.P, self.V, eta))
+        # result = list(tqdm(pool.imap(compute_pinv, args), total=len(args)))
+        # F = np.array(result)
         
         # 3D IFT
         f = np.real(np.fft.ifftn(F, axes=(0,1,2)))
 
         return f
 
+    def pinv2(self, g, eta=0):
+        print('Applying pseudoinverse operator')
+        
+        # 3D FT
+        G = np.fft.rfftn(g, axes=(0,1,2))
+        G2 = np.reshape(G, G.shape[0:3] + (self.P*self.V,))
+        
+        xstart = slice(0, (self.X//2)+1)
+        xend = slice(None, -(self.X//2), -1)
+        ystart = slice(0, (self.Y//2)+1)
+        yend = slice(None, -(self.Y//2), -1)
+
+        # Full SVD Tensor multiplication baseline
+        # for z in tqdm(range(self.Hz.shape[0])):
+        #     H0 = self.Hz[z]*self.Hxy[:,:,:,:]
+        #     H1 = np.einsum('x,ysp->xysp', self.Hx, self.Hyz[:,z,:,:])
+        #     HH = np.reshape(np.stack((H0, H1), axis=-1), H0.shape[0:2] + (self.J, self.P*self.V))
+        #     u, s, vh = np.linalg.svd(HH, full_matrices=False) # Find SVD
+        #     sreg = np.where(s > 1e-7, s/(s**2 + eta), 0) # Regularize
+        #     Pinv = np.einsum('xysv,xyv,xyvd->xysd', u, sreg, vh, optimize=True)
+        #     F[xstart,ystart,z,:] = np.einsum('xysd,xyd->xys', Pinv[:,:,:,:], G2[xstart,ystart,z,:])
+        #     F[xend,ystart,z,:] = np.einsum('xysd,xyd->xys', Pinv[1:-1,:,:,:], G2[xend,ystart,z,:])
+        #     F[xstart,yend,z,:] = np.einsum('xysd,xyd->xys', Pinv[:,1:-1,:,:], G2[xstart,yend,z,:])
+        #     F[xend,yend,z,:] = np.einsum('xysd,xyd->xys', Pinv[1:-1,1:-1,:,:], G2[xend,yend,z,:])            
+        
+        from multiprocessing import Pool
+        pool = Pool(processes=4)
+        args = []
+        for z in range(self.Hz.shape[0]):
+            args.append((z, G2[:,:,z,:], self.Hxy, self.Hyz[:,z,:,:], self.Hx, self.Hz, self.X, self.Y, self.J, self.P, self.V, eta, xstart, xend, ystart, yend))
+        result = list(tqdm(pool.imap(compute_pinv2, args), total=len(args)))
+        F = np.array(result)
+        
+        # 3D IFT
+        f = np.fft.irfftn(np.moveaxis(F, 0, 2), axes=(0,1,2))
+
+        return f
+    
     def pinv_angular(self, g, eta=0, mask=None):
         print('Applying pseudoinverse operator')
         f = np.zeros(self.spang.f.shape)
@@ -284,3 +331,18 @@ def compute_pinv(args):
     u, s, vh = np.linalg.svd(HH, full_matrices=False) # Find SVD
     sreg = np.where(s > 1e-7, s/(s**2 + eta), 0) # Regularize
     return np.einsum('yzlm,yzm,yzmn,yzn->yzl', u, sreg, vh, G, optimize=True) # Apply Pinv
+
+def compute_pinv2(args):
+    z, G2, Hxy, Hyz, Hx, Hz, X, Y, J, P, V, eta, xstart, xend, ystart, yend = args
+    H0 = Hz[z]*Hxy[:,:,:,:]
+    H1 = np.einsum('x,ysp->xysp', Hx, Hyz[:,:,:])
+    HH = np.reshape(np.stack((H0, H1), axis=-1), H0.shape[0:2] + (J, P*V))
+    u, s, vh = np.linalg.svd(HH, full_matrices=False) # Find SVD
+    sreg = np.where(s > 1e-7, s/(s**2 + eta), 0) # Regularize
+    Pinv = np.einsum('xysv,xyv,xyvd->xysd', u, sreg, vh, optimize=True)
+    F = np.zeros((X, Y, J), dtype=np.complex64)
+    F[xstart,ystart,:] = np.einsum('xysd,xyd->xys', Pinv[:,:,:,:], G2[xstart,ystart,:])
+    F[xend,ystart,:] = np.einsum('xysd,xyd->xys', Pinv[1:-1,:,:,:], G2[xend,ystart,:])
+    F[xstart,yend,:] = np.einsum('xysd,xyd->xys', Pinv[:,1:-1,:,:], G2[xstart,yend,:])
+    F[xend,yend,:] = np.einsum('xysd,xyd->xys', Pinv[1:-1,1:-1,:,:], G2[xend,yend,:])
+    return F
