@@ -186,8 +186,8 @@ class MultiMicroscope:
         #     F[xstart,yend,z,:] = np.einsum('xysd,xyd->xys', Pinv[:,1:-1,:,:], G2[xstart,yend,z,:])
         #     F[xend,yend,z,:] = np.einsum('xysd,xyd->xys', Pinv[1:-1,1:-1,:,:], G2[xend,yend,z,:])            
         
-        from multiprocessing import Pool
-        pool = Pool(processes=4)
+        import multiprocessing as mp
+        pool = mp.Pool(processes=mp.cpu_count())
         args = []
         for z in range(self.Hz.shape[0]):
             args.append((z, G2[:,:,z,:], self.Hxy, self.Hyz[:,z,:,:], self.Hx, self.Hz, self.X, self.Y, self.J, self.P, self.V, eta, xstart, xend, ystart, yend))

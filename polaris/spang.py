@@ -48,6 +48,33 @@ class Spang:
         self.B = B
         self.Binv = np.linalg.pinv(self.B, rcond=1e-15)
 
+    # def calc_stats(self, mask=None):
+    #     print('Calculating summary statistics')
+    #     self.density = np.zeros((self.X, self.Y, self.Z))
+    #     self.gfa = np.zeros((self.X, self.Y, self.Z))
+    #     self.peak_dirs = np.zeros((self.X, self.Y, self.Z, 3))
+    #     self.peak_values = np.zeros((self.X, self.Y, self.Z))
+
+    #     if mask is None:
+    #         mask = np.ones((self.X, self.Y, self.Z))
+
+    #     for x in tqdm(range(self.X)):
+    #         # Calculate spherical Fourier transform
+    #         odf = np.einsum('as,yzs->yza', self.Binv.T, self.f[x,:,:])#.clip(min=0)
+
+    #         # Calculate density
+    #         self.density[x,:,:] = np.sum(odf, axis=-1)
+    #         self.peak_dirs[x,:,:,:] = self.sphere.vertices[np.argmax(odf, axis=-1)]
+    #         self.peak_values[x,:,:] = np.amax(odf, axis=-1)
+
+    #         # Calculate gfa
+    #         std = np.std(odf, axis=-1)
+    #         rms = np.sqrt(np.mean(odf**2, axis=-1))
+    #         self.gfa[x,:,:] = np.divide(std, rms, where=(rms != 0))
+
+    #     self.density = self.density/np.max(self.density)
+    #     self.maxpeak = np.max(self.peak_values)
+
     def calc_stats(self, mask=None):
         print('Calculating summary statistics')
         self.density = np.zeros((self.X, self.Y, self.Z))
@@ -57,24 +84,26 @@ class Spang:
 
         if mask is None:
             mask = np.ones((self.X, self.Y, self.Z))
-        
-        for x in tqdm(range(self.X)):
-            # Calculate spherical Fourier transform
-            odf = np.einsum('as,yzs->yza', self.Binv.T, self.f[x,:,:]).clip(min=0)
 
-            # Calculate density
-            self.density[x,:,:] = np.sum(odf, axis=-1)
-            self.peak_dirs[x,:,:,:] = self.sphere.vertices[np.argmax(odf, axis=-1)]
-            self.peak_values[x,:,:] = np.amax(odf, axis=-1)
+        # Calc stats
+        import multiprocessing as mp
+        pool = mp.Pool(processes=mp.cpu_count())
+        args = []
+        for x in range(self.X):
+            args.append((self.Binv.T, self.f[x,:,:], self.sphere))
+        out = np.array(list(tqdm(pool.imap(compute_stats, args), total=len(args))))
+        out = np.moveaxis(out, 1, -1)
 
-            # Calculate gfa
-            std = np.std(odf, axis=-1)
-            rms = np.sqrt(np.mean(odf**2, axis=-1))
-            self.gfa[x,:,:] = np.divide(std, rms, where=(rms != 0))
+        # Unpack 
+        self.density = out[...,0]
+        self.peak_dirs = out[...,1:4]
+        self.peak_values = out[...,4]
+        self.gfa = out[...,5]
 
+        # Normalize
         self.density = self.density/np.max(self.density)
         self.maxpeak = np.max(self.peak_values)
-
+        
     def save_summary(self, filename='out.pdf', gfa_filter=None, mag=4,
                      mask=None, scale=1, keep_parallels=False):
         print('Generating ' + filename)
@@ -296,3 +325,20 @@ class Spang:
     def read_tiff(self, filename):
         with tifffile.TiffFile(filename) as tf:
             self.f = np.moveaxis(tf.asarray(), [0, 1, 2, 3], [2, 3, 1, 0])
+
+def compute_stats(args):
+    B, f, sphere = args
+    
+    # Calculate spherical Fourier transform
+    odf = np.einsum('as,yzs->yza', B, f)#.clip(min=0)
+
+    # Calculate density
+    density = np.sum(odf, axis=-1)
+    peak_dirs = sphere.vertices[np.argmax(odf, axis=-1)]
+    peak_values = np.amax(odf, axis=-1)
+
+    # Calculate gfa
+    std = np.std(odf, axis=-1)
+    rms = np.sqrt(np.mean(odf**2, axis=-1))
+    gfa = np.divide(std, rms, where=(rms != 0))
+    return density, peak_dirs[:,:,0], peak_dirs[:,:,1], peak_dirs[:,:,2], peak_values, gfa
