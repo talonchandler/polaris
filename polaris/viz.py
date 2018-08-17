@@ -4,13 +4,105 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
 import vtk
+import os
 from dipy.viz import window, actor
 from dipy.viz.colormap import colormap_lookup_table, create_colormap
 from dipy.utils.optpkg import optional_package
 numpy_support, have_ns, _ = optional_package('vtk.util.numpy_support')
 
+def plot_parallels(raw_data, out_path='out/', outer_box=True, axes=True,
+                   clip_neg=False, size=(600,600), mask=None, scale=1,
+                   azimuth=0, elevation=0, zoom=1.7):
+    # Prepare output
+    if not os.path.exists(out_path):
+        os.makedirs(out_path)
+
+    # Mask
+    if mask is None:
+        mask = np.ones(raw_data.shape)
+    raw_data = raw_data*mask
+        
+    # Render
+    ren = window.Renderer()
+    ren.background([1,1,1])
+
+    # Add visuals to renderer
+    data = np.zeros(raw_data.shape)
+
+    # X MIP
+    data[data.shape[0]//2,:,:] = np.max(raw_data, axis=0)
+    slice_actorx = actor.slicer(data, value_range=(0,1), interpolation='nearest')
+    slice_actorx.display(slice_actorx.shape[0]//2, None, None)
+    ren.add(slice_actorx)
+
+    # Y MIP
+    data[:,data.shape[1]//2,:] = np.max(raw_data, axis=1)
+    slice_actory = actor.slicer(data, value_range=(0,1), interpolation='nearest')
+    slice_actory.display(None, slice_actory.shape[1]//2, None)
+    ren.add(slice_actory)
+
+    # Z MIP
+    data[:,:,data.shape[2]//2] = np.max(raw_data, axis=-1)
+    slice_actorz = actor.slicer(data, value_range=(0,1), interpolation='nearest')
+    slice_actorz.display(None, None, slice_actorz.shape[2]//2)
+    ren.add(slice_actorz)
+
+    X = raw_data.shape[0] - 1
+    Y = raw_data.shape[1] - 1
+    Z = raw_data.shape[2] - 1
+
+    if outer_box:
+        c = np.array([0,0,0])
+        ren.add(actor.line([np.array([[0,0,0],[X,0,0],[X,Y,0],[0,Y,0],
+                                      [0,0,0],[0,Y,0],[0,Y,Z],[0,0,Z],
+                                      [0,0,0],[X,0,0],[X,0,Z],[0,0,Z]])], colors=c))
+        ren.add(actor.line([np.array([[X,0,Z],[X,Y,Z],[X,Y,0],[X,Y,Z],
+                                      [0,Y,Z]])], colors=c))
+    NN = np.max([X, Y, Z])
+    # Add invisible actors to set FOV
+    ren.add(actor.line([np.array([[0,0,0],[NN,0,0]])], colors=np.array([1,1,1]), linewidth=1))
+    ren.add(actor.line([np.array([[0,0,0],[0,NN,0]])], colors=np.array([1,1,1]), linewidth=1))
+    ren.add(actor.line([np.array([[0,0,0],[0,0,NN]])], colors=np.array([1,1,1]), linewidth=1))
+    # Add colored axes
+    if axes:
+        ren.add(actor.line([np.array([[0,0,0],[NN/10,0,0]])], colors=np.array([1,0,0]), linewidth=4))
+        ren.add(actor.line([np.array([[0,0,0],[0,NN/10,0]])], colors=np.array([0,1,0]), linewidth=4))
+        ren.add(actor.line([np.array([[0,0,0],[0,0,NN/10]])], colors=np.array([0,0,1]), linewidth=4))
+
+    # Setup vtk renderers
+    renWin = vtk.vtkRenderWindow()
+    renWin.AddRenderer(ren)
+    renWin.SetSize(size[0], size[1])
+    iren = vtk.vtkRenderWindowInteractor()
+    iren.SetRenderWindow(renWin)
+    ren.ResetCamera()
+    ren.azimuth(azimuth)
+    ren.elevation(elevation)
+
+    writer = vtk.vtkPNGWriter()
+    az = 0
+
+    filenames = ['yz', 'xy', 'xz']
+    zooms = [zoom, 1.0, 1.0]
+    azs = [90, -90, 0]
+    els = [0, 0, 90]
+    for i in range(3):
+        ren.projection(proj_type='parallel')
+        ren.zoom(zooms[i])
+        ren.azimuth(azs[i])
+        ren.elevation(els[i])
+        ren.reset_clipping_range()
+        renderLarge = vtk.vtkRenderLargeImage()
+        renderLarge.SetMagnification(1)
+        renderLarge.SetInput(ren)
+        renderLarge.Update()
+        writer.SetInputConnection(renderLarge.GetOutputPort())
+        writer.SetFileName(out_path + filenames[i] + '.png')
+        writer.Write()
+        
 def plot5d(filename, data, row_labels=None, col_labels=None, yscale_label=None,
            force_bwr=False, normalize=False):
+
     if np.min(data) < 0 or force_bwr:
         colormap = 'bwr'
         vmin = -1
@@ -28,6 +120,8 @@ def plot5d(filename, data, row_labels=None, col_labels=None, yscale_label=None,
     cols = data.shape[-2] + 1
     widths = [1]*(cols - 1) + [0.05]
     heights = [1]*rows
+    M = np.max(data.shape)
+    x_frac = data.shape[0]/M
     f = plt.figure(figsize=(inches*np.sum(widths), inches*np.sum(heights)))
     spec = gridspec.GridSpec(ncols=cols, nrows=rows, width_ratios=widths,
                              height_ratios=heights, hspace=0.25, wspace=0.15)
@@ -35,39 +129,21 @@ def plot5d(filename, data, row_labels=None, col_labels=None, yscale_label=None,
         for col in range(cols):
             if col != cols - 1:
                 data3 = data[:,:,:,col,row]
-                plot_projections(data3, f, spec, row, col, col_labels, row_labels,
-                                 vmin, vmax, colormap, rows, cols, yscale_label)
+                plot_parallels(data3, out_path='parallels/', outer_box=False,
+                                   axes=False, clip_neg=False, azimuth=0,
+                                   elevation=0)
+                plot_images(['parallels/yz.png', 'parallels/xy.png', 'parallels/xz.png'],
+                                f, spec, row, col,
+                                col_labels=col_labels, row_labels=None,
+                                vmin=vmin, vmax=vmax, colormap=colormap,
+                                rows=rows, cols=cols, x_frac=x_frac, yscale_label=yscale_label)
             elif col == cols - 1 and row == rows - 1:
                 plot_colorbar(f, spec, row, col, vmin, vmax, colormap)
 
     f.savefig(filename, bbox_inches='tight')
-
-def plot_projections(data3, f, spec, row, col, col_labels, row_labels, vmin, vmax,
-                     colormap, rows, cols, yscale_label, pos=(-0.05, 1.05, 0.5, 0.5)):
-    mini_spec = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=spec[row, col], hspace=0.1, wspace=0.1)
-    for a in range(2):
-        for b in range(2):
-            ax = f.add_subplot(mini_spec[a, b])
-            if a == 0 and b == 0:
-                data2 = util.absmax(data3, axis=0)[:,::-1]
-            if a == 0 and b == 1:
-                data2 = util.absmax(data3, axis=2).T
-            if a == 1 and b == 1:
-                data2 = util.absmax(data3, axis=1)[:,::-1].T
-                draw_annotations(ax, row, col, row_labels, col_labels, pos=pos)
-            if a == 1 and b == 0:
-                if vmin == -1:
-                    data2 = np.zeros(data3.shape[0:2])
-                else:
-                    data2 = np.ones(data3.shape[0:2])
-            ax.imshow(data2, cmap=colormap, vmin=vmin, vmax=vmax, interpolation='none', origin='lower', extent=[-24, 24, -24, 24], aspect=1)
-            ax.axis('off')
-            if col == (cols - 2) and row == rows - 1 and a == 1 and b == 1 and yscale_label is not None:
-                ax.annotate(yscale_label, xy=(0.5,-0.3), xytext=(0.5, -0.3), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=10)
-                ax.annotate('', xy=(0, -0.1), xytext=(1.0, -0.1), xycoords='axes fraction', textcoords='axes fraction', va='center', arrowprops=dict(arrowstyle='|-|, widthA=0.2, widthB=0.2', shrinkA=0.05, shrinkB=0.05, lw=0.5))
-
+    
 def plot_images(images, f, spec, row, col, col_labels, row_labels, vmin, vmax,
-                colormap, rows, cols, yscale_label, pos=(-0.05, 1.05, 0.5, 0.5)):
+                colormap, rows, cols, x_frac, yscale_label, pos=(-0.05, 1.05, 0.5, 0.5)):
     mini_spec = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=spec[row, col], hspace=0.1, wspace=0.1)
     for a in range(2):
         for b in range(2):
@@ -86,8 +162,8 @@ def plot_images(images, f, spec, row, col, col_labels, row_labels, vmin, vmax,
                 ax.imshow(im, interpolation='none', origin='upper', extent=[-24, 24, -24, 24], aspect=1)
             ax.axis('off')
             if col == (cols - 2) and row == rows - 1 and a == 1 and b == 1 and yscale_label is not None:
-                ax.annotate(yscale_label, xy=(0.5,-0.3), xytext=(0.5, -0.3), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=10)
-                ax.annotate('', xy=(0, -0.1), xytext=(1.0, -0.1), xycoords='axes fraction', textcoords='axes fraction', va='center', arrowprops=dict(arrowstyle='|-|, widthA=0.2, widthB=0.2', shrinkA=0.05, shrinkB=0.05, lw=0.5))
+                ax.annotate(yscale_label, xy=(x_frac/2,-0.3), xytext=(x_frac/2, -0.3), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=10)
+                ax.annotate('', xy=(0, -0.1), xytext=(x_frac, -0.1), xycoords='axes fraction', textcoords='axes fraction', va='center', arrowprops=dict(arrowstyle='|-|, widthA=0.2, widthB=0.2', shrinkA=0.05, shrinkB=0.05, lw=0.5))
                 
 def plot_colorbar(f, spec, row, col, vmin, vmax, colormap):
     ax = f.add_subplot(spec[row, col])
