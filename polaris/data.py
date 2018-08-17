@@ -38,7 +38,7 @@ class Data:
 
         row_labels = 'Illumination axis = ' + np.apply_along_axis(util.xyz2str, 1, self.ill_optical_axes) + '\n Detection axis = ' + np.apply_along_axis(util.xyz2str, 1, self.det_optical_axes) + '\n NA = ' + util.f2str(self.det_nas)
         col_labels = 'Polarizer = ' + np.apply_along_axis(util.xyz2str, 2, self.pols)
-        self.yscale = 1e-3*self.vox_dim[1]*self.X
+        self.yscale = 1e-3*self.vox_dim[1]*self.Y
         yscale_label = '{:.2f}'.format(self.yscale) + ' $\mu$m'
         viz.plot5d(filename, self.g.clip(min=0), row_labels, col_labels, yscale_label, normalize=normalize)
 

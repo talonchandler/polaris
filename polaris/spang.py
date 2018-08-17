@@ -8,6 +8,7 @@ from dipy.data import get_sphere
 import vtk
 from tqdm import tqdm
 import tifffile
+import os
 
 class Spang:
     """
@@ -70,17 +71,17 @@ class Spang:
     #         # Calculate gfa
     #         std = np.std(odf, axis=-1)
     #         rms = np.sqrt(np.mean(odf**2, axis=-1))
-    #         self.gfa[x,:,:] = np.divide(std, rms, where=(rms != 0))
+    #         self.gfa[x,:,:] = np.nan_to_num(std/rms)#np.divide(std, rms, where=(rms >= 1e-5))
 
     #     self.density = self.density/np.max(self.density)
     #     self.maxpeak = np.max(self.peak_values)
 
     def calc_stats(self, mask=None):
         print('Calculating summary statistics')
-        self.density = np.zeros((self.X, self.Y, self.Z))
-        self.gfa = np.zeros((self.X, self.Y, self.Z))
-        self.peak_dirs = np.zeros((self.X, self.Y, self.Z, 3))
-        self.peak_values = np.zeros((self.X, self.Y, self.Z))
+        self.density = np.zeros((self.X, self.Y, self.Z), dtype=np.float32)
+        self.gfa = np.zeros((self.X, self.Y, self.Z), dtype=np.float32)
+        self.peak_dirs = np.zeros((self.X, self.Y, self.Z, 3), dtype=np.float32)
+        self.peak_values = np.zeros((self.X, self.Y, self.Z), dtype=np.float32)
 
         if mask is None:
             mask = np.ones((self.X, self.Y, self.Z))
@@ -104,8 +105,8 @@ class Spang:
         self.density = self.density/np.max(self.density)
         self.maxpeak = np.max(self.peak_values)
         
-    def save_summary(self, filename='out.pdf', gfa_filter=None, mag=4,
-                     mask=None, scale=1, keep_parallels=False):
+    def save_summary(self, filename='out.pdf', gfa_filter=0.1, mag=4,
+                     mask=None, scale=1, keep_parallels=False, skip_n=1):
         print('Generating ' + filename)
         pos = (-0.05, 1.05, 0.5, 0.55) # Arrow and label positions
         vmin = 0
@@ -119,8 +120,12 @@ class Spang:
         if gfa_filter is None:
             gfa_label = 'GFA'
         else:
-            gfa_label = 'GFA[Density $>$ ' + str(gfa_filter)+']'
-        col_labels = np.array([['Spatio-angular density', 'Peak', 'Density', gfa_label]])
+            gfa_label = 'GFA\n where density $>$ ' + str(gfa_filter)
+        if skip_n == 1:
+            ds_string = ''
+        else:
+            ds_string = '\n downsampled ' + str(skip_n) + '$\\times$'
+        col_labels = np.array([['Spatio-angular density' + ds_string, 'Peak' + ds_string, 'Density', gfa_label]])
         f = plt.figure(figsize=(inches*np.sum(widths), inches*np.sum(heights)))
         spec = gridspec.GridSpec(ncols=cols, nrows=rows, width_ratios=widths,
                                  height_ratios=heights, hspace=0.25, wspace=0.15)
@@ -130,19 +135,16 @@ class Spang:
                 if col < 4:
                     yscale_label = None
                     if col == 3:
-                        if gfa_filter is None:
-                            gfa = self.gfa
-                        else:
-                            gfa = self.gfa*(self.density > gfa_filter)
-                            self.yscale = 1e-3*self.vox_dim[1]*self.X
-                            yscale_label = '{:.2f}'.format(self.yscale) + ' $\mu$m'
+                        self.yscale = 1e-3*self.vox_dim[1]*self.Y
+                        yscale_label = '{:.2f}'.format(self.yscale) + ' $\mu$m'
 
                     self.visualize(out_path='parallels/', zoom=1.7,
                                    outer_box=False, axes=False,
                                    clip_neg=False, azimuth=0, elevation=0,
                                    n_frames=1, mag=mag, video=False, scale=scale,
                                    interact=False, viz_type=viz_types[col],
-                                   save_parallels=True, mask=mask)
+                                   save_parallels=True, mask=mask, skip_n=skip_n,
+                                   gfa_filter=gfa_filter)
                     
                     viz.plot_images(['parallels/yz.png', 'parallels/xy.png', 'parallels/xz.png'],
                                     f, spec, row, col,
@@ -174,11 +176,11 @@ class Spang:
     def visualize(self, out_path='out/', outer_box=True, axes=True,
                   clip_neg=False, azimuth=0, elevation=0, n_frames=1,
                   size=(600,600), mag=4, video=False, viz_type='ODF', mask=None,
-                  scale=1, zoom=1.0, zoom_in=1.0, interact=False, save_parallels=False):
+                  skip_n=1, scale=1, zoom=1.0, zoom_in=1.0, interact=False,
+                  save_parallels=False, gfa_filter=0):
         print('Preparing to render ' + out_path)
         
         # Prepare output
-        import os
         if not os.path.exists(out_path):
             os.makedirs(out_path)
             
@@ -189,6 +191,9 @@ class Spang:
             for y in [-1,0]:
                 for z in [-1,0]:
                     mask[x,y,z] = True
+        skip_mask = np.zeros(mask.shape, dtype=np.bool)
+        skip_mask[::skip_n,::skip_n,::skip_n] = 1
+        mask = np.logical_and(mask, skip_mask)
 
         # Render
         ren = window.Renderer()
@@ -196,20 +201,22 @@ class Spang:
 
         # Add visuals to renderer
         if viz_type == "ODF":
+            print('Rendering '+str(np.sum(mask))+' ODFs')
             fodf_spheres = viz.odf_sparse(self.f, self.Binv, self.maxpeak,
-                                          sphere=self.sphere, scale=scale*0.5/self.maxpeak,
+                                          sphere=self.sphere, scale=skip_n*scale*0.5/self.maxpeak,
                                           norm=False, colormap='bwr', mask=mask,
                                           global_cm=True)
             ren.add(fodf_spheres)
         elif viz_type == "PEAK":
+            print('Rendering '+str(np.sum(mask))+' peaks')
             fodf_peaks = viz.peak_slicer(self.peak_dirs[:,:,:,None,:],
-                                         self.peak_values[:,:,:,None]*scale*0.5/self.maxpeak, mask=mask)
+                                         self.peak_values[:,:,:,None]*skip_n*scale*0.5/self.maxpeak, mask=mask)
             ren.add(fodf_peaks)
         elif viz_type == "DENSITY" or viz_type == "GFA":
             if viz_type == "DENSITY":
                 scalars = self.density
             if viz_type == "GFA":
-                scalars = self.gfa
+                scalars = self.gfa*(self.density > gfa_filter)
             data = np.zeros(scalars.shape)
 
             # X MIP
@@ -315,16 +322,29 @@ class Spang:
         col_labels = np.apply_along_axis(util.j2str, 1, np.arange(self.J)[:,None])[None,:]
         viz.plot5d(filename, self.f[...,None], col_labels=col_labels)
             
-    def save_tiff(self, filename):
-        # Writes each spherical harmonic to a tiff. 
+    def save_tiff(self, filename='sh.tif', data=None):
+        if data is None:
+            data = self.f
+        
         print('Writing '+filename)
         with tifffile.TiffWriter(filename, imagej=True) as tif:
-            data = np.moveaxis(self.f, [2, 3, 1, 0], [0, 1, 2, 3])
-            tif.save(data[None,:,:,:,:]) # TZCYXS
+            if data.ndim == 4:
+                d = np.moveaxis(data, [2, 3, 1, 0], [0, 1, 2, 3])
+                tif.save(d[None,:,:,:,:]) # TZCYXS
+            elif data.ndim == 3:
+                d = np.moveaxis(data, [2, 1, 0], [0, 1, 2])
+                tif.save(d[None,:,None,:,:].astype(np.float32)) # TZCYXS
                 
     def read_tiff(self, filename):
         with tifffile.TiffFile(filename) as tf:
             self.f = np.moveaxis(tf.asarray(), [0, 1, 2, 3], [2, 3, 1, 0])
+
+    def save_stats(self, folder='./'):
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        self.save_tiff(filename=folder+'sh.tif', data=self.f)
+        self.save_tiff(filename=folder+'density.tif', data=self.density)
+        self.save_tiff(filename=folder+'gfa.tif', data=self.gfa)
 
 def compute_stats(args):
     B, f, sphere = args
@@ -340,5 +360,6 @@ def compute_stats(args):
     # Calculate gfa
     std = np.std(odf, axis=-1)
     rms = np.sqrt(np.mean(odf**2, axis=-1))
-    gfa = np.divide(std, rms, where=(rms != 0))
+    gfa = np.nan_to_num(std/rms)
+    
     return density, peak_dirs[:,:,0], peak_dirs[:,:,1], peak_dirs[:,:,2], peak_values, gfa
