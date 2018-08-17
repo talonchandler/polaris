@@ -33,8 +33,8 @@ class Data:
 
     def save_mips(self, filename='mips.pdf', normalize=False):
         print('Saving '+filename)
-        if np.min(self.g) < 0:
-            print('Warning: minimum data is ' + str(np.min(self.g)) + '. Truncating negative values.')
+        if np.min(self.g) < -1e-3:
+            print('Warning: minimum data is ' + str(np.min(self.g)) + '. Truncating negative values in '+filename)
 
         row_labels = 'Illumination axis = ' + np.apply_along_axis(util.xyz2str, 1, self.ill_optical_axes) + '\n Detection axis = ' + np.apply_along_axis(util.xyz2str, 1, self.det_optical_axes) + '\n NA = ' + util.f2str(self.det_nas)
         col_labels = 'Polarizer = ' + np.apply_along_axis(util.xyz2str, 2, self.pols)

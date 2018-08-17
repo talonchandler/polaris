@@ -218,6 +218,11 @@ class Spang:
         Y = self.Y - 1
         Z = self.Z - 1
 
+        # Add invisible actors to set FOV
+        NN = np.max([X, Y, Z])
+        ren.add(actor.line([np.array([[0,0,0],[NN,0,0]])], colors=np.array([1,1,1]), linewidth=1))
+        ren.add(actor.line([np.array([[0,0,0],[0,NN,0]])], colors=np.array([1,1,1]), linewidth=1))
+        ren.add(actor.line([np.array([[0,0,0],[0,0,NN]])], colors=np.array([1,1,1]), linewidth=1))
         if outer_box:
             c = np.array([0,0,0])
             ren.add(actor.line([np.array([[0,0,0],[X,0,0],[X,Y,0],[0,Y,0],
@@ -225,11 +230,6 @@ class Spang:
                                           [0,0,0],[X,0,0],[X,0,Z],[0,0,Z]])], colors=c))
             ren.add(actor.line([np.array([[X,0,Z],[X,Y,Z],[X,Y,0],[X,Y,Z],
                                           [0,Y,Z]])], colors=c))
-        NN = np.max([X, Y, Z])
-        # Add invisible actors to set FOV
-        ren.add(actor.line([np.array([[0,0,0],[NN,0,0]])], colors=np.array([1,1,1]), linewidth=1))
-        ren.add(actor.line([np.array([[0,0,0],[0,NN,0]])], colors=np.array([1,1,1]), linewidth=1))
-        ren.add(actor.line([np.array([[0,0,0],[0,0,NN]])], colors=np.array([1,1,1]), linewidth=1))
         # Add colored axes
         if axes:
             ren.add(actor.line([np.array([[0,0,0],[NN/10,0,0]])], colors=np.array([1,0,0]), linewidth=4))
@@ -291,6 +291,7 @@ class Spang:
             subprocess.call(['ffmpeg', '-nostdin', '-y', '-framerate', str(fps),
                              '-loglevel', 'panic',
                              '-i', out_path+'%06d.png', out_path[:-1]+'.avi'])
+            subprocess.call(['rm', '-r', out_path])
         if interact:
             window.show(ren)
 
