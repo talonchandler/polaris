@@ -202,14 +202,14 @@ class Spang:
 
         # Add visuals to renderer
         if viz_type == "ODF":
-            print('Rendering '+str(np.sum(mask))+' ODFs')
+            print('Rendering '+str(np.sum(mask) - 8)+' ODFs')
             fodf_spheres = viz.odf_sparse(self.f, self.Binv, self.maxpeak,
                                           sphere=self.sphere, scale=skip_n*scale*0.5/self.maxpeak,
                                           norm=False, colormap='bwr', mask=mask,
                                           global_cm=True)
             ren.add(fodf_spheres)
         elif viz_type == "PEAK":
-            print('Rendering '+str(np.sum(mask))+' peaks')
+            print('Rendering '+str(np.sum(mask) - 8)+' peaks')
             fodf_peaks = viz.peak_slicer(self.peak_dirs[:,:,:,None,:],
                                          self.peak_values[:,:,:,None]*skip_n*scale*0.5/self.maxpeak, mask=mask)
             ren.add(fodf_peaks)

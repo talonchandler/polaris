@@ -67,15 +67,20 @@ def three_helix(vox_dim=(130,130,130), px=(64,64,64)):
     phant.f[2*s:3*s,2*s:3*s,2*s:3*s] = phant3.f
     return phant
 
-def bead(orientation=[1,0,0], uniform=False, px=(21,21,21), vox_dim=(100,100,100)):
+def bead(orientation=[1,0,0], kappa=0, px=(32,32,32), vox_dim=(100,100,100)):
+    # orientation sets the axis of rotational symmetry
+    # kappa = 0: angularly uniform
+    # kappa > 0: dumbell
+    # kappa < 0: pancake
     dims = px + (15,)
     f = np.zeros(dims, dtype=np.float32)
-    if uniform:
-        f[int((px[0]-1)/2), int((px[1]-1)/2), int((px[2]-1)/2), 0] = 1
-    else:
-        f[int((px[0]-1)/2), int((px[1]-1)/2), int((px[2]-1)/2), :] = util.xyz_sft(orientation, max_l=4)
+    spang1 = spang.Spang(f, vox_dim=vox_dim)
+    dot = np.dot(orientation, spang1.sphere.vertices.T)
+    watson = np.exp(kappa*dot**2)/(4*np.pi*hyp1f1(0.5, 1.5, kappa))
+    watson_sh = np.matmul(spang1.B.T, watson)
+    spang1.f[px[0]//2, px[1]//2, px[2]//2, :] = watson_sh
     
-    return spang.Spang(f, vox_dim=vox_dim)
+    return spang1
 
 def all_directions(px=(15,15,1), vox_dim=(100,100,100)):
     dims = px + (3,)

@@ -16,14 +16,18 @@ if not os.path.exists(folder):
 
 # Generate phantom
 vox_dim = (130,130,130) # nm
-px = (64,64,64) 
-phant = phantom.three_helix(vox_dim=vox_dim, px=px)
+# helix phantom
+px = (64,64,64)
+phant = phantom.three_helix(vox_dim=vox_dim, px=px) 
+# bead phantom - try varying orientation and kappa
+# px = (32,32,32)
+# phant = phantom.bead(orientation=[1,0,0], kappa=3, vox_dim=vox_dim, px=px)
 
 # Calculate phantom statistics and save
 phant.calc_stats()
 # masking is necessary for fast rendering
 mask = phant.density > 0.1 
-# set "interact" to "True" to interact with the phantom
+# try "interact=True" to interact with the phantom
 phant.visualize(folder+'phantom/', mask=mask, interact=False, video=True,
                 n_frames=15) 
 phant.save_stats(folder+'phantom/')

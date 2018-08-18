@@ -134,7 +134,7 @@ def plot5d(filename, data, row_labels=None, col_labels=None, yscale_label=None,
                                    elevation=0)
                 plot_images(['parallels/yz.png', 'parallels/xy.png', 'parallels/xz.png'],
                                 f, spec, row, col,
-                                col_labels=col_labels, row_labels=None,
+                                col_labels=col_labels, row_labels=row_labels,
                                 vmin=vmin, vmax=vmax, colormap=colormap,
                                 rows=rows, cols=cols, x_frac=x_frac, yscale_label=yscale_label)
             elif col == cols - 1 and row == rows - 1:
