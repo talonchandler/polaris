@@ -3,6 +3,37 @@ import numpy as np
 from scipy.special import hyp1f1
 from dipy.data import get_sphere
 
+def three_helix(vox_dim=(130,130,130), px=(64,64,64)):
+    phant = spang.Spang(np.zeros(px + (15,), dtype=np.float32), vox_dim=vox_dim)
+    s = px[0]//3
+    phant1 = helix_phantom(px=(s,s,s), radius=600, pitch=1000, cyl_rad=250,
+                          vox_dim=vox_dim, max_l=4, center=(0,0,0),
+                          normal=0, trange=(-2*np.pi, 2*np.pi))
+    phant2 = helix_phantom(px=(s,s,s), radius=600, pitch=1000, cyl_rad=250,
+                          vox_dim=vox_dim, max_l=4, center=(0,0,0),
+                          normal=1, trange=(-2*np.pi, 2*np.pi))
+    phant3 = helix_phantom(px=(s,s,s), radius=600, pitch=1000, cyl_rad=250,
+                          vox_dim=vox_dim, max_l=4, center=(0,0,0),
+                          normal=2, trange=(-2*np.pi, 2*np.pi))
+    phant.f[0:s,0:s,0:s] = phant1.f
+    phant.f[s:2*s,s:2*s,s:2*s] = phant2.f
+    phant.f[2*s:3*s,2*s:3*s,2*s:3*s] = phant3.f
+    return phant
+
+def helix_phantom(px=(20,20,20), vox_dim=(100,100,100), max_l=6,
+                  trange=(-4*np.pi, 4*np.pi), nt=100, radius=700, pitch=1000,
+                  cyl_rad=250, center=(0,0,0), normal=0, krange=(0,5),
+                  dtype=np.float32):
+    print('Generating helix')
+    t = np.linspace(trange[0], trange[1], nt)
+    c = np.array([radius*np.cos(t), radius*np.sin(t), pitch*t/(2*np.pi)]).T
+    d = np.array([-radius*np.sin(t), radius*np.cos(t), pitch/(2*np.pi) + 0*t]).T
+    d = d/np.linalg.norm(d, axis=-1)[...,None] # normalize
+    c = np.roll(c, normal, axis=-1) + center # orient and recenter
+    d = np.roll(d, normal, axis=-1) # orient
+    k = np.linspace(krange[0], krange[1], nt) # watson kappa parameter
+    return curve_phantom(c, d, k, cyl_rad=cyl_rad, vox_dim=vox_dim, px=px, max_l=max_l, dtype=dtype)
+
 def curve_phantom(curve, direction, kappa,
                   px=(20,20,20), vox_dim=(100,100,100), cyl_rad=0.2, max_l=6,
                   dtype=np.float32):
@@ -35,37 +66,6 @@ def curve_phantom(curve, direction, kappa,
     spang1.f = np.einsum('ijkl,ijk->ijkl', watson_sh, mask).astype(dtype)
     
     return spang1
-
-def helix_phantom(px=(20,20,20), vox_dim=(100,100,100), max_l=6,
-                  trange=(-4*np.pi, 4*np.pi), nt=100, radius=700, pitch=1000,
-                  cyl_rad=250, center=(0,0,0), normal=0, krange=(0,5),
-                  dtype=np.float32):
-    print('Generating helix')
-    t = np.linspace(trange[0], trange[1], nt)
-    c = np.array([radius*np.cos(t), radius*np.sin(t), pitch*t/(2*np.pi)]).T
-    d = np.array([-radius*np.sin(t), radius*np.cos(t), pitch/(2*np.pi) + 0*t]).T
-    d = d/np.linalg.norm(d, axis=-1)[...,None] # normalize
-    c = np.roll(c, normal, axis=-1) + center # orient and recenter
-    d = np.roll(d, normal, axis=-1) # orient
-    k = np.linspace(krange[0], krange[1], nt) # watson kappa parameter
-    return curve_phantom(c, d, k, cyl_rad=cyl_rad, vox_dim=vox_dim, px=px, max_l=max_l, dtype=dtype)
-
-def three_helix(vox_dim=(130,130,130), px=(64,64,64)):
-    phant = spang.Spang(np.zeros(px + (15,), dtype=np.float32), vox_dim=vox_dim)
-    s = px[0]//3
-    phant1 = helix_phantom(px=(s,s,s), radius=600, pitch=1000, cyl_rad=250,
-                          vox_dim=vox_dim, max_l=4, center=(0,0,0),
-                          normal=0, trange=(-2*np.pi, 2*np.pi))
-    phant2 = helix_phantom(px=(s,s,s), radius=600, pitch=1000, cyl_rad=250,
-                          vox_dim=vox_dim, max_l=4, center=(0,0,0),
-                          normal=1, trange=(-2*np.pi, 2*np.pi))
-    phant3 = helix_phantom(px=(s,s,s), radius=600, pitch=1000, cyl_rad=250,
-                          vox_dim=vox_dim, max_l=4, center=(0,0,0),
-                          normal=2, trange=(-2*np.pi, 2*np.pi))
-    phant.f[0:s,0:s,0:s] = phant1.f
-    phant.f[s:2*s,s:2*s,s:2*s] = phant2.f
-    phant.f[2*s:3*s,2*s:3*s,2*s:3*s] = phant3.f
-    return phant
 
 def bead(orientation=[1,0,0], kappa=None, px=(32,32,32), vox_dim=(100,100,100)):
     # orientation sets the axis of rotational symmetry
