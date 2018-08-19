@@ -109,7 +109,7 @@ class MultiMicroscope:
 
         # 3D FT
         F = np.fft.rfftn(f, axes=(0,1,2))
-
+        
         # Tensor multiplication
         G = np.zeros(F.shape[0:3] + self.data.g.shape[3:], dtype=np.complex64)
         for x in tqdm(range(self.Hxy.shape[0])):
@@ -131,7 +131,7 @@ class MultiMicroscope:
                 G[end,-y,z,:,1] = np.einsum('xsp,xs->xp', Hxsp[1:-1], F[end,-y,z,:])
 
         # 3D IFT
-        g = np.fft.irfftn(G, axes=(0,1,2))
+        g = np.fft.irfftn(G, s=f.shape[0:3], axes=(0,1,2))
         
         # Apply Poisson noise
         if snr is not None:
@@ -195,7 +195,7 @@ class MultiMicroscope:
         F = np.array(result)
         
         # 3D IFT
-        f = np.fft.irfftn(np.moveaxis(F, 0, 2), axes=(0,1,2))
+        f = np.fft.irfftn(np.moveaxis(F, 0, 2), s=g.shape[0:3], axes=(0,1,2))
 
         return f
     

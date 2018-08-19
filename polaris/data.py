@@ -42,20 +42,27 @@ class Data:
         yscale_label = '{:.2f}'.format(self.yscale) + ' $\mu$m'
         viz.plot5d(filename, self.g.clip(min=0), row_labels, col_labels, yscale_label, normalize=normalize)
 
-    def save_tiff(self, folder):
+    def save_tiff(self, folder, diSPIM_format=True):
         print('Writing '+folder)
-        
-        for f in [folder, folder+'SPIMA', folder+'SPIMB']:
-            if not os.path.exists(f):
-                os.makedirs(f)
 
-        for i, view in enumerate(['SPIMA', 'SPIMB']):
-            for j in range(4):
-                filename = folder + view + '/' + view + '_reg_' + str(j) + '.tif'
-                data = self.g[...,j,i]
-                data = np.swapaxes(data, 0, 2)
-                with tifffile.TiffWriter(filename, imagej=True) as tw:
-                    tw.save(data[None,:,None,:,:,None]) # TZCYXS
+        if diSPIM_format:
+            # Same format as shroff lab
+            for f in [folder, folder+'SPIMA', folder+'SPIMB']:
+                if not os.path.exists(f):
+                    os.makedirs(f)
+
+            for i, view in enumerate(['SPIMA', 'SPIMB']):
+                for j in range(4):
+                    filename = folder + view + '/' + view + '_reg_' + str(j) + '.tif'
+                    data = self.g[...,j,i]
+                    data = np.swapaxes(data, 0, 2)
+                    with tifffile.TiffWriter(filename, imagej=True) as tw:
+                        tw.save(data[None,:,None,:,:,None]) # TZCYXS
+        else:
+            filename = folder + 'data.tif'
+            data = np.moveaxis(self.g, [4, 2, 3], [0, 1, 2])
+            with tifffile.TiffWriter(filename, imagej=True) as tw:
+                tw.save(data[:,:,:,:,:,None]) # TZCYXS
 
     def read_tiff(self, folder, roi=None, order=None, cal=None, expected=None):
         for i, view in enumerate(['SPIMA', 'SPIMB']):
