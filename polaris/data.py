@@ -31,6 +31,19 @@ class Data:
         self.ill_optical_axes = ill_optical_axes
         self.det_optical_axes = det_optical_axes
 
+    def remove_background(self, level=None):
+        # By default subtract the average of a 10x10x10 ROI with corner at
+        # (5,5,5) --- not too close to the corner
+        if level is None:
+            self.g[...,0] = self.g[...,0] - np.mean(self.g[5:15,5:15,5:15,:,0])
+            self.g[...,1] = self.g[...,1] - np.mean(self.g[5:15,5:15,5:15,:,1])
+        else:
+            self.g[...,0] = self.g[...,0] - level[0]
+            self.g[...,1] = self.g[...,1] - level[1]
+
+    def apply_calibration_correction(self, cal_data, expected):
+        self.g = self.g*expected.T/cal_data.T
+            
     def save_mips(self, filename='mips.pdf', normalize=False):
         print('Saving '+filename)
         if np.min(self.g) < -1e-3:
@@ -38,7 +51,7 @@ class Data:
 
         row_labels = 'Illumination axis = ' + np.apply_along_axis(util.xyz2str, 1, self.ill_optical_axes) + '\n Detection axis = ' + np.apply_along_axis(util.xyz2str, 1, self.det_optical_axes) + '\n NA = ' + util.f2str(self.det_nas)
         col_labels = 'Polarizer = ' + np.apply_along_axis(util.xyz2str, 2, self.pols)
-        self.yscale = 1e-3*self.vox_dim[1]*self.Y
+        self.yscale = 1e-3*self.vox_dim[1]*self.g.shape[0]
         yscale_label = '{:.2f}'.format(self.yscale) + ' $\mu$m'
         viz.plot5d(filename, self.g.clip(min=0), row_labels, col_labels, yscale_label, normalize=normalize)
 
@@ -54,7 +67,7 @@ class Data:
             for i, view in enumerate(['SPIMA', 'SPIMB']):
                 for j in range(4):
                     filename = folder + view + '/' + view + '_reg_' + str(j) + '.tif'
-                    data = self.g[...,j,i]
+                    data = self.g[...,j,i].astype(np.float32)
                     data = np.swapaxes(data, 0, 2)
                     with tifffile.TiffWriter(filename, imagej=True) as tw:
                         tw.save(data[None,:,None,:,:,None]) # TZCYXS

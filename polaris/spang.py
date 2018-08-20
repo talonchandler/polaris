@@ -156,7 +156,7 @@ class Spang:
                                            axes=False, clip_neg=False, azimuth=0,
                                            elevation=0, scale=scale)
                     if col == 3:
-                        self.yscale = 1e-3*self.vox_dim[1]*self.Y
+                        self.yscale = 1e-3*self.vox_dim[1]*self.f.shape[0]
                         yscale_label = '{:.2f}'.format(self.yscale) + ' $\mu$m'
                         viz.plot_parallels(self.gfa, out_path='parallels/', outer_box=False,
                                            axes=False, clip_neg=False, azimuth=0,
