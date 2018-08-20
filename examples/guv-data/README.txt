@@ -7,9 +7,4 @@ calibration data in a single file suitable for reconstruction.
 
 The raw data and preprocessed data can be found on Naushon at:
 
-TODO 
-
-
-
-
-
+H:\Shared Data\MinData\20180726_Mai_GUV
