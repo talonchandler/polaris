@@ -1,6 +1,8 @@
 import subprocess
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from matplotlib import rc
+rc('text', usetex=True)
 from polaris import viz, util
 import numpy as np
 from dipy.viz import window, actor

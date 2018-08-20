@@ -41,13 +41,8 @@ See the `example` scripts for complete forward and inverse simulations.
 These instructions have only been tested on macOS, but near variants should work
 on all platforms.
 
-Is brew installed? If not run:
-
-    /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-
-Is anaconda installed? If not run:
-
-    brew cask install anaconda
+Is anaconda installed? If not install it through `brew` or from the [anaconda
+webpage](https://www.anaconda.com/download/).
 
 Clone a copy of polaris.
 
@@ -63,10 +58,12 @@ every time you want to run polaris.
 
     conda activate polaris
 
-Install polaris locally so that you can access it from anywhere. You can also
-modify your `$PATH` variable. You will only need to do this once. 
+Install polaris locally so that you can access it from anywhere. 
 
     pip install -e ./
+
+Alternatively, you can modify your `$PYTHONPATH` variable. You will only need to
+do this once.
 
 Run the example scripts.
 

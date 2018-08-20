@@ -2,6 +2,8 @@ from scipy import misc
 from polaris import util
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from matplotlib import rc
+rc('text', usetex=True)
 import numpy as np
 import vtk
 import os
