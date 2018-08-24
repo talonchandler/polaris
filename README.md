@@ -68,5 +68,5 @@ do this once.
 Run the example scripts.
 
     cd examples
-    python demo-synthetic.py
-    python demo-data.py
+    python demo-synthetic-helix.py
+    python demo-data-guv.py
