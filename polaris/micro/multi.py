@@ -19,7 +19,7 @@ class MultiMicroscope:
 
     A MultiMicroscope mainly consists of a list of Microscopes.
     """
-    def __init__(self, spang, data, sigma_ax=0.33, n_samp=1.33, lamb=525,
+    def __init__(self, spang, data, sigma_ax=0.25, n_samp=1.33, lamb=525,
                  spang_coupling=True):
 
         self.spang = spang

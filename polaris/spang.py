@@ -240,6 +240,8 @@ class Spang:
 
         # Setup vtk renderers
         renWin = vtk.vtkRenderWindow()
+        if not interact:
+            renWin.SetOffScreenRendering(1)
         renWin.AddRenderer(ren)
         renWin.SetSize(size[0], size[1])
         iren = vtk.vtkRenderWindowInteractor()

@@ -73,6 +73,7 @@ def plot_parallels(raw_data, out_path='out/', outer_box=True, axes=True,
 
     # Setup vtk renderers
     renWin = vtk.vtkRenderWindow()
+    renWin.SetOffScreenRendering(1)
     renWin.AddRenderer(ren)
     renWin.SetSize(size[0], size[1])
     iren = vtk.vtkRenderWindowInteractor()
