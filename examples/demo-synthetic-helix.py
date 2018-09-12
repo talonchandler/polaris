@@ -9,7 +9,7 @@ from polaris.micro import multi
 import numpy as np
 
 # Make output folder
-folder = './bead-rudolf/'
+folder = './helix/'
 import os
 if not os.path.exists(folder):
     os.makedirs(folder)
@@ -17,11 +17,11 @@ if not os.path.exists(folder):
 # Generate phantom
 vox_dim = (130,130,130) # nm
 # helix phantom
-# px = (64,64,64)
-# phant = phantom.three_helix(vox_dim=vox_dim, px=px) 
+px = (64,64,64)
+phant = phantom.three_helix(vox_dim=vox_dim, px=px) 
 # bead phantom - try varying orientation and kappa
-px = (32,32,32)
-phant = phantom.bead(orientation=[1,0,0], kappa=30, vox_dim=vox_dim, px=px)
+# px = (32,32,32)
+# phant = phantom.bead(orientation=[1,0,0], kappa=30, vox_dim=vox_dim, px=px)
 
 # Calculate phantom statistics and save
 phant.calc_stats()
