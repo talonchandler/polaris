@@ -6,12 +6,12 @@ from scipy.special import sph_harm, hyp1f1
 def spZnm(l, m, theta, phi):
     if m > 0:
         return np.real((sph_harm(m, l, phi, theta) +
-                np.conj(sph_harm(m, l, phi, theta)))/(np.sqrt(2)))
+                        ((-1)**m)*sph_harm(-m, l, phi, theta))/(np.sqrt(2)))
     elif m == 0:
         return np.real(sph_harm(m, l, phi, theta))
     elif m < 0:
-        return  -np.real((sph_harm(m, l, phi, theta) -
-                 np.conj(sph_harm(m, l, phi, theta)))/(np.sqrt(2)*1j))
+        return np.real((sph_harm(m, l, phi, theta) -
+                        ((-1)**m)*sph_harm(-m, l, phi, theta))/(np.sqrt(2)*1j))
 
 # Calculate spherical harmonic coefficients of delta
 def xyz_sft(xyz, max_l=4):
