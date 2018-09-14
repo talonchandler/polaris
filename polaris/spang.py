@@ -51,61 +51,23 @@ class Spang:
         self.B = B
         self.Binv = np.linalg.pinv(self.B, rcond=1e-15)
 
-    # def calc_stats(self, mask=None):
-    #     print('Calculating summary statistics')
-    #     self.density = np.zeros((self.X, self.Y, self.Z))
-    #     self.gfa = np.zeros((self.X, self.Y, self.Z))
-    #     self.peak_dirs = np.zeros((self.X, self.Y, self.Z, 3))
-    #     self.peak_values = np.zeros((self.X, self.Y, self.Z))
+    def density(self):
+        return self.f[...,0]
 
-    #     if mask is None:
-    #         mask = np.ones((self.X, self.Y, self.Z))
+    def gfa(self):
+        return np.nan_to_num(np.sqrt(1 - (self.f[...,0]**2)/np.sum(self.f**2, axis=-1)))
 
-    #     for x in tqdm(range(self.X)):
-    #         # Calculate spherical Fourier transform
-    #         odf = np.einsum('as,yzs->yza', self.Binv.T, self.f[x,:,:])#.clip(min=0)
-
-    #         # Calculate density
-    #         self.density[x,:,:] = np.sum(odf, axis=-1)
-    #         self.peak_dirs[x,:,:,:] = self.sphere.vertices[np.argmax(odf, axis=-1)]
-    #         self.peak_values[x,:,:] = np.amax(odf, axis=-1)
-
-    #         # Calculate gfa
-    #         std = np.std(odf, axis=-1)
-    #         rms = np.sqrt(np.mean(odf**2, axis=-1))
-    #         self.gfa[x,:,:] = np.nan_to_num(std/rms)#np.divide(std, rms, where=(rms >= 1e-5))
-
-    #     self.density = self.density/np.max(self.density)
-    #     self.maxpeak = np.max(self.peak_values)
-
-    def calc_stats(self, mask=None):
-        print('Calculating summary statistics')
-        self.density = np.zeros((self.X, self.Y, self.Z), dtype=np.float32)
-        self.gfa = np.zeros((self.X, self.Y, self.Z), dtype=np.float32)
-        self.peak_dirs = np.zeros((self.X, self.Y, self.Z, 3), dtype=np.float32)
-        self.peak_values = np.zeros((self.X, self.Y, self.Z), dtype=np.float32)
-
-        if mask is None:
-            mask = np.ones((self.X, self.Y, self.Z))
-
-        # Calc stats
-        import multiprocessing as mp
-        pool = mp.Pool(processes=mp.cpu_count())
-        args = []
-        for x in range(self.X):
-            args.append((self.Binv.T, self.f[x,:,:], self.sphere))
-        out = np.array(list(tqdm(pool.imap(compute_stats, args), total=len(args))))
-        out = np.moveaxis(out, 1, -1)
-
-        # Unpack 
-        self.density = out[...,0]
-        self.peak_dirs = out[...,1:4]
-        self.peak_values = out[...,4]
-        self.gfa = out[...,5]
-
-        # Normalize
-        self.density = self.density/np.max(self.density)
-        self.maxpeak = np.max(self.peak_values)
+    def tensor(self):
+        print("Calculating tensor fits")
+        M = np.load(os.path.join(os.path.dirname(__file__), 'harmonics/sh2tensor.npy'))
+        Di = np.einsum('ijkl,lm->ijkm', self.f[...,0:6], M)
+        D = np.zeros(self.f.shape[0:3]+(3,3), dtype=np.float32)
+        D[...,0,0] = Di[...,0]; D[...,0,1] = Di[...,3]; D[...,0,2] = Di[...,5];
+        D[...,1,0] = Di[...,3]; D[...,1,1] = Di[...,1]; D[...,1,2] = Di[...,4];
+        D[...,2,0] = Di[...,5]; D[...,2,1] = Di[...,4]; D[...,2,2] = Di[...,2];
+        eigs = np.linalg.eigh(D)
+        principal = eigs[1][...,-1]*eigs[1][...,-1]
+        return Di.astype(np.float32), principal.astype(np.float32)
         
     def save_summary(self, filename='out.pdf', gfa_filter=0.1, mag=4,
                      mask=None, scale=1, keep_parallels=False, skip_n=1):
@@ -113,67 +75,98 @@ class Spang:
         pos = (-0.05, 1.05, 0.5, 0.55) # Arrow and label positions
         vmin = 0
         vmax = 1
-        colormap = 'gray'
         inches = 2
-        rows = 1
-        cols = 5
-        widths = [1.1]*(cols - 1) + [0.05]
+        rows = 2
+        cols = 3
+        colormap = 'Reds'
+        widths = [1]*cols
         heights = [1]*rows
-        M = np.max(self.density.shape)
-        x_frac = self.density.shape[0]/M
+        M = np.max(self.f.shape)
+        x_frac = self.f.shape[0]/M
         if gfa_filter is None:
             gfa_label = 'GFA'
         else:
-            gfa_label = 'GFA\n where density $>$ ' + str(gfa_filter)
+            gfa_label = 'GFA where density $>$ ' + str(gfa_filter)
         if skip_n == 1:
             ds_string = ''
         else:
-            ds_string = '\n downsampled ' + str(skip_n) + '$\\times$'
-        col_labels = np.array([['Spatio-angular density' + ds_string, 'Peak' + ds_string, 'Density', gfa_label]])
+            ds_string = 'downsampled ' + str(skip_n) + '$\\times$'
+        col_labels = np.array([['Peak' + ds_string, 'Ellipsoid' + ds_string, 'Principal' + ds_string], ['ODF' + ds_string, 'Normalized density' + ds_string, gfa_label]])
         f = plt.figure(figsize=(inches*np.sum(widths), inches*np.sum(heights)))
         spec = gridspec.GridSpec(ncols=cols, nrows=rows, width_ratios=widths,
-                                 height_ratios=heights, hspace=0.25, wspace=0.15)
+                                 height_ratios=heights, hspace=0.075, wspace=0.075)
         for row in range(rows):
             for col in range(cols):
-                if col < 4:
+                if col < 3:
                     yscale_label = None
-                    if col == 0:
+                    if row == 1 and col == 0:
+                        bar = True
+                        bar_label = 'ODF radius'
+                        colormap = 'Reds'
                         self.visualize(out_path='parallels/', zoom=1.7,
                                        outer_box=False, axes=False,
                                        clip_neg=False, azimuth=0, elevation=0,
                                        n_frames=1, mag=mag, video=False, scale=scale,
                                        interact=False, viz_type='ODF',
                                        save_parallels=True, mask=mask, skip_n=skip_n)
-                    if col == 1:
+                    if row == 0 and col == 1:
+                        bar = False
+                        bar_label = 'Principal'
+                        self.visualize(out_path='parallels/', zoom=1.7,
+                                       outer_box=False, axes=False,
+                                       clip_neg=False, azimuth=0, elevation=0,
+                                       n_frames=1, mag=mag, video=False, scale=scale,
+                                       interact=False, viz_type='ELLIPSOID',
+                                       save_parallels=True, mask=mask, skip_n=skip_n)
+                    if row == 0 and col == 2:
+                        bar = False
+                        bar_label = 'Principal'
+                        self.visualize(out_path='parallels/', zoom=1.7,
+                                       outer_box=False, axes=False,
+                                       clip_neg=False, azimuth=0, elevation=0,
+                                       n_frames=1, mag=mag, video=False, scale=scale,
+                                       interact=False, viz_type='PRINCIPAL',
+                                       save_parallels=True, mask=mask, skip_n=skip_n)
+                    if row == 0 and col == 0:
+                        bar = False
+                        bar_label = 'Peak'
                         self.visualize(out_path='parallels/', zoom=1.7,
                                        outer_box=False, axes=False,
                                        clip_neg=False, azimuth=0, elevation=0,
                                        n_frames=1, mag=mag, video=False, scale=scale,
                                        interact=False, viz_type='PEAK',
                                        save_parallels=True, mask=mask, skip_n=skip_n)
-                    if col == 2:
-                        viz.plot_parallels(self.density, out_path='parallels/', outer_box=False,
+                    if row == 1 and col == 1:
+                        colormap = 'gray'
+                        bar = True
+                        bar_label = 'Normalized\n density'
+                        viz.plot_parallels(self.density(), out_path='parallels/', outer_box=False,
                                            axes=False, clip_neg=False, azimuth=0,
                                            elevation=0, scale=scale)
-                    if col == 3:
+                    if row == 1 and col == 2:
                         self.yscale = 1e-3*self.vox_dim[1]*self.f.shape[0]
+                        colormap = 'gray'
                         yscale_label = '{:.2f}'.format(self.yscale) + ' $\mu$m'
-                        viz.plot_parallels(self.gfa, out_path='parallels/', outer_box=False,
+                        bar = True
+                        bar_label = 'GFA'
+                        viz.plot_parallels(self.gfa(), out_path='parallels/', outer_box=False,
                                            axes=False, clip_neg=False, azimuth=0,
-                                           elevation=0, scale=scale, mask=self.density > gfa_filter)
+                                           elevation=0, scale=scale, mask=self.density() > gfa_filter)
 
                     viz.plot_images(['parallels/yz.png', 'parallels/xy.png', 'parallels/xz.png'],
                                     f, spec, row, col,
                                     col_labels=col_labels, row_labels=None,
                                     vmin=vmin, vmax=vmax, colormap=colormap,
-                                    rows=rows, cols=cols, x_frac=x_frac, yscale_label=yscale_label, pos=pos)
+                                    rows=rows, cols=cols, x_frac=x_frac,
+                                    yscale_label=yscale_label, pos=pos, bar=bar, bar_label=bar_label)
                     if not keep_parallels:
                         subprocess.call(['rm', '-r', 'parallels'])
                     
-                elif col == 4:
+                elif col == 3:
                     viz.plot_colorbar(f, spec, row, col, vmin, vmax, colormap)
 
         print('Saving ' + filename)
+        # plt.subplots_adjust(bottom=0.3)
         f.savefig(filename, bbox_inches='tight')
         
     def visualize(self, out_path='out/', outer_box=True, axes=True,
@@ -205,15 +198,29 @@ class Spang:
         # Add visuals to renderer
         if viz_type == "ODF":
             print('Rendering '+str(np.sum(mask) - 8)+' ODFs')
-            fodf_spheres = viz.odf_sparse(self.f, self.Binv, self.maxpeak,
-                                          sphere=self.sphere, scale=skip_n*scale*0.5/self.maxpeak,
-                                          norm=False, colormap='bwr', mask=mask,
+            fodf_spheres = viz.odf_sparse(self.f, self.Binv, sphere=self.sphere,
+                                          scale=skip_n*scale*0.5, norm=False,
+                                          colormap='bwr', mask=mask,
                                           global_cm=True)
             ren.add(fodf_spheres)
+        elif viz_type == "ELLIPSOID":
+            print('Rendering '+str(np.sum(mask) - 8)+' ellipsoids')
+            fodf_peaks = viz.tensor_slicer_sparse(self.f,
+                                                  sphere=self.sphere,
+                                                  scale=skip_n*scale*0.5,
+                                                  mask=mask)
+            ren.add(fodf_peaks)
         elif viz_type == "PEAK":
             print('Rendering '+str(np.sum(mask) - 8)+' peaks')
-            fodf_peaks = viz.peak_slicer(self.peak_dirs[:,:,:,None,:],
-                                         self.peak_values[:,:,:,None]*skip_n*scale*0.5/self.maxpeak, mask=mask)
+            fodf_peaks = viz.peak_slicer_sparse(self.f, self.Binv, self.sphere.vertices, 
+                                                scale=skip_n*scale*0.5,
+                                                mask=mask)
+            ren.add(fodf_peaks)
+        elif viz_type == "PRINCIPAL":
+            print('Rendering '+str(np.sum(mask) - 8)+' principals')
+            fodf_peaks = viz.principal_slicer_sparse(self.f, self.Binv, self.sphere.vertices, 
+                                                     scale=skip_n*scale*0.5,
+                                                     mask=mask)
             ren.add(fodf_peaks)
 
         X = self.X - 1
@@ -325,23 +332,8 @@ class Spang:
         if not os.path.exists(folder):
             os.makedirs(folder)
         self.save_tiff(filename=folder+'sh.tif', data=self.f)
-        self.save_tiff(filename=folder+'density.tif', data=self.density)
-        self.save_tiff(filename=folder+'gfa.tif', data=self.gfa)
-
-def compute_stats(args):
-    B, f, sphere = args
-    
-    # Calculate spherical Fourier transform
-    odf = np.einsum('as,yzs->yza', B, f)#.clip(min=0)
-
-    # Calculate density
-    density = np.sum(odf, axis=-1)
-    peak_dirs = sphere.vertices[np.argmax(odf, axis=-1)]
-    peak_values = np.amax(odf, axis=-1)
-
-    # Calculate gfa
-    std = np.std(odf, axis=-1)
-    rms = np.sqrt(np.mean(odf**2, axis=-1))
-    gfa = np.nan_to_num(std/rms)
-    
-    return density, peak_dirs[:,:,0], peak_dirs[:,:,1], peak_dirs[:,:,2], peak_values, gfa
+        self.save_tiff(filename=folder+'density.tif', data=self.density())
+        self.save_tiff(filename=folder+'gfa.tif', data=self.gfa())
+        tensor, principal = self.tensor()
+        self.save_tiff(filename=folder+'tensor.tif', data=tensor)
+        self.save_tiff(filename=folder+'principal.tif', data=principal)

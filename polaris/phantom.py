@@ -60,6 +60,7 @@ def curve_phantom(curve, direction, kappa,
     k = min_k[...,None]
     watson = np.exp(k*dot**2)/(4*np.pi*hyp1f1(0.5, 1.5, k))
     watson_sh = np.einsum('ijkl,lm', watson, spang1.B)
+    watson_sh = watson_sh/watson_sh[...,None,0] # Normalize
 
     # Cylinder mask
     mask = min_dist < cyl_rad

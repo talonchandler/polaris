@@ -121,13 +121,13 @@ def plot5d(filename, data, row_labels=None, col_labels=None, yscale_label=None,
     inches = 2
     rows = data.shape[-1]
     cols = data.shape[-2] + 1
-    widths = [1]*(cols - 1) + [0.05]
+    widths = [1]*cols
     heights = [1]*rows
     M = np.max(data.shape)
     x_frac = data.shape[0]/M
     f = plt.figure(figsize=(inches*np.sum(widths), inches*np.sum(heights)))
     spec = gridspec.GridSpec(ncols=cols, nrows=rows, width_ratios=widths,
-                             height_ratios=heights, hspace=0.25, wspace=0.15)
+                             height_ratios=heights, hspace=0.075, wspace=0.075)
     for row in range(rows):
         for col in range(cols):
             if col != cols - 1:
@@ -140,13 +140,12 @@ def plot5d(filename, data, row_labels=None, col_labels=None, yscale_label=None,
                                 col_labels=col_labels, row_labels=row_labels,
                                 vmin=vmin, vmax=vmax, colormap=colormap,
                                 rows=rows, cols=cols, x_frac=x_frac, yscale_label=yscale_label)
-            elif col == cols - 1 and row == rows - 1:
-                plot_colorbar(f, spec, row, col, vmin, vmax, colormap)
 
     f.savefig(filename, bbox_inches='tight')
     
 def plot_images(images, f, spec, row, col, col_labels, row_labels, vmin, vmax,
-                colormap, rows, cols, x_frac, yscale_label, pos=(-0.05, 1.05, 0.5, 0.5)):
+                colormap, rows, cols, x_frac, yscale_label, pos=(-0.05, 1.05, 0.5, 0.5),
+                bar=True, bar_label=''):
     mini_spec = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=spec[row, col], hspace=0.1, wspace=0.1)
     for a in range(2):
         for b in range(2):
@@ -160,29 +159,54 @@ def plot_images(images, f, spec, row, col, col_labels, row_labels, vmin, vmax,
                 draw_annotations(ax, row, col, row_labels, col_labels, pos=pos)
             if a == 1 and b == 0:
                 image = None
+                if bar:
+                    plot_colorbar(ax, spec, vmin, vmax, colormap, bar_label=bar_label)
+                else:
+                    im = misc.imread('../assets/rgb.png')
+                    ax.imshow(im, interpolation='none', origin='upper', extent=[-1, 1, -1, 1], aspect=1)
+                    s = 3
+                    ax.set_xlim([-s,s])
+                    ax.set_ylim([-s,s])
+                    ax.axis('off')
+                    ax.get_xaxis().set_visible(False)
+                    ax.get_yaxis().set_visible(False)
+                    r = 1.2
+                    zs = 0.2
+                    ax.annotate('$x$', xy=(0,0), xytext=(-r*np.sqrt(3)/2,-r*np.sqrt(3)/2+zs), xycoords='data', textcoords='data', va='center', ha='center', fontsize=6)
+                    ax.annotate('$y$', xy=(0,0), xytext=(r*np.sqrt(3)/2,-r*np.sqrt(3)/2+zs), xycoords='data', textcoords='data', va='center', ha='center', fontsize=6)
+                    ax.annotate('$z$', xy=(0,0), xytext=(0,r+zs), xycoords='data', textcoords='data', va='center', ha='center', fontsize=6)
+                    ax.annotate(bar_label, xy=(0,0), xytext=(0, -1.75), xycoords='data', textcoords='data', va='center', ha='center', fontsize=6)
             if image is not None:
                 im = misc.imread(image)
                 ax.imshow(im, interpolation='none', origin='upper', extent=[-24, 24, -24, 24], aspect=1)
-            ax.axis('off')
-            if col == (cols - 2) and row == rows - 1 and a == 1 and b == 1 and yscale_label is not None:
-                ax.annotate(yscale_label, xy=(x_frac/2,-0.3), xytext=(x_frac/2, -0.3), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=10)
+                ax.axis('off')
+                ax.get_xaxis().set_visible(False)
+                ax.get_yaxis().set_visible(False)
+            if col == (cols - 1) and row == rows - 1 and a == 1 and b == 1 and yscale_label is not None:
+                ax.annotate(yscale_label, xy=(x_frac/2,-0.2), xytext=(x_frac/2, -0.2), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=6)
                 ax.annotate('', xy=(0, -0.1), xytext=(x_frac, -0.1), xycoords='axes fraction', textcoords='axes fraction', va='center', arrowprops=dict(arrowstyle='|-|, widthA=0.2, widthB=0.2', shrinkA=0.05, shrinkB=0.05, lw=0.5))
                 
-def plot_colorbar(f, spec, row, col, vmin, vmax, colormap):
-    ax = f.add_subplot(spec[row, col])
+def plot_colorbar(ax, spec, vmin, vmax, colormap, bar_label=''):
     X, Y = np.meshgrid(np.linspace(vmin, vmax, 100),
                        np.linspace(vmin, vmax, 100))
-    ax.imshow(Y, cmap=colormap, vmin=vmin, vmax=vmax, interpolation='none',
-              extent=[vmin,vmax,vmin,vmax], origin='lower', aspect='auto')
+    bb = ax.get_position()
+    bb.x0 += 0.02
+    bb.x1 += -0.02
+    ax.set_position(bb)
+    ax.imshow(X, cmap=colormap, vmin=vmin, vmax=vmax, interpolation='none',
+              extent=[vmin,vmax,vmin,vmax], origin='lower', aspect=1/12)
     ax.set_xlim([vmin,vmax])
     ax.set_ylim([vmin,vmax])
-    ax.tick_params(direction='out', left=False, right=True)
-    ax.xaxis.set_ticks([])
-    ax.yaxis.tick_right()
+    ax.tick_params(direction='out', left=True, right=False, labelsize=6, width=0.5)
+    ax.yaxis.set_ticks([])
+    ax.xaxis.tick_top()
+    for axis in ['top','bottom','left','right']:
+        ax.spines[axis].set_linewidth(0.5)
     if vmin == -1:
-        ax.yaxis.set_ticks([-1.0, 0, 1.0])
+        ax.xaxis.set_ticks([-1.0, 0, 1.0])
     else:
-        ax.yaxis.set_ticks([0, 0.5, 1.0])
+        ax.xaxis.set_ticks([0, 1])
+    ax.annotate(bar_label, xy=(0,0), xytext=(0.5, -3), xycoords='data', textcoords='data', va='center', ha='center', fontsize=6)
 
 def draw_annotations(ax, row, col, row_labels, col_labels, pos=(-0.05, 1.05, 0.5, 0.5)):
     xc = pos[0]
@@ -198,11 +222,11 @@ def draw_annotations(ax, row, col, row_labels, col_labels, pos=(-0.05, 1.05, 0.5
     ax.annotate('$y$', xy=(xc,yc), xytext=(xc, yc+d2), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=6)
     ax.annotate('$z$', xy=(xc,yc), xytext=(xc, yc-d2), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=6)
     if col_labels is not None:
-        ax.annotate(col_labels[row,col], xy=(xc,yc), xytext=(0, 2.3), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=10)
+        ax.annotate(col_labels[row,col], xy=(xc,yc), xytext=(0, 2.2), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=6)
     if col == 0 and row_labels is not None:
-        ax.annotate(row_labels[row], xy=(xc,yc), xytext=(-1.55, 1), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=10, rotation=90)
+        ax.annotate(row_labels[row], xy=(xc,yc), xytext=(-1.35, 1), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=6, rotation=90)
 
-def odf_sparse(odfsh, Binv, globalpeak, affine=None, mask=None, sphere=None, scale=2.2,
+def odf_sparse(odfsh, Binv, affine=None, mask=None, sphere=None, scale=2.2,
                norm=True, radial_scale=True, opacity=1.,
                colormap='plasma', global_cm=False):
     if mask is None:
@@ -220,7 +244,6 @@ def odf_sparse(odfsh, Binv, globalpeak, affine=None, mask=None, sphere=None, sca
             tmp_mask = np.bitwise_and(tmp_mask, mask)
 
             self.mapper = _odf_slicer_mapper(odfsh=odfsh, Binv=Binv,
-                                             globalpeak=globalpeak,
                                              affine=affine,
                                              mask=tmp_mask,
                                              sphere=sphere,
@@ -235,7 +258,6 @@ def odf_sparse(odfsh, Binv, globalpeak, affine=None, mask=None, sphere=None, sca
         def display(self, x=None, y=None, z=None):
             if x is None and y is None and z is None:
                 self.display_extent(0, szx - 1, 0, szy - 1, 0, szz - 1)
-
             if x is not None:
                 self.display_extent(x, x, 0, szy - 1, 0, szz - 1)
             if y is not None:
@@ -248,7 +270,7 @@ def odf_sparse(odfsh, Binv, globalpeak, affine=None, mask=None, sphere=None, sca
 
     return odf_actor
 
-def _odf_slicer_mapper(odfsh, Binv, globalpeak, affine=None, mask=None,
+def _odf_slicer_mapper(odfsh, Binv, affine=None, mask=None,
                        sphere=None, scale=2.2,
                        norm=True, radial_scale=True, opacity=1.,
                        colormap='plasma', global_cm=False):
@@ -269,40 +291,27 @@ def _odf_slicer_mapper(odfsh, Binv, globalpeak, affine=None, mask=None,
     all_xyz = []
     all_faces = []
     all_ms = []
+    masked_sh = odfsh[ijk[:,0], ijk[:,1], ijk[:,2]] # Assemble masked sh
+    masked_radii = np.einsum('vj,pj->vp', Binv.T, masked_sh) # Radii
+    xyz_vertices = np.einsum('ij,ik->ikj', vertices, masked_radii)*scale/np.max(masked_radii) + ijk # Vertices
+    all_xyz = xyz_vertices.reshape(-1, xyz_vertices.shape[-1], order='F') # Reshape
+    all_xyz_vtk = numpy_support.numpy_to_vtk(all_xyz, deep=True) # Convert to vtk
+
+    # Assemble faces
     for (k, center) in enumerate(ijk):
-        msh = odfsh[tuple(center.astype(np.int))].copy()
-        m = np.matmul(Binv.T, msh)
-        if k == 0:
-            m[0] = -1*globalpeak
-
-        if norm:
-            m /= np.abs(m).max()
-
-        if radial_scale:
-            xyz = vertices * m[:, None]
-        else:
-            xyz = vertices.copy()
-
-        all_xyz.append(scale * xyz + center)
-        all_faces.append(faces + k * xyz.shape[0])
-        all_ms.append(m)
-
-    all_xyz = np.ascontiguousarray(np.concatenate(all_xyz))
-    all_xyz_vtk = numpy_support.numpy_to_vtk(all_xyz, deep=True)
-
+        all_faces.append(faces + k * xyz_vertices.shape[0])
     all_faces = np.concatenate(all_faces)
     all_faces = np.hstack((3 * np.ones((len(all_faces), 1)),
                            all_faces))
     ncells = len(all_faces)
-
     all_faces = np.ascontiguousarray(all_faces.ravel(), dtype='i8')
     all_faces_vtk = numpy_support.numpy_to_vtkIdTypeArray(all_faces,
                                                           deep=True)
 
     if global_cm:
-        all_ms = np.ascontiguousarray(
-            np.concatenate(all_ms), dtype='f4')
-
+        all_ms = masked_radii
+        all_ms[0,0] = -np.max(masked_radii)
+        all_ms = all_ms.flatten(order='F')
     points = vtk.vtkPoints()
     points.SetData(all_xyz_vtk)
 
@@ -342,57 +351,82 @@ def _odf_slicer_mapper(odfsh, Binv, globalpeak, affine=None, mask=None,
 
     return mapper
 
-def peak_slicer(peaks_dirs, peaks_values=None, mask=None, affine=None,
-                colors=(1, 0, 0), opacity=1., linewidth=1,
-                lod=False, lod_points=10 ** 4, lod_points_size=3):
-    peaks_dirs = np.asarray(peaks_dirs)
-    if peaks_dirs.ndim > 5:
-        raise ValueError("Wrong shape")
+def peak_slicer_sparse(odfsh, Binv, vertices, mask=None, affine=None, scale=1,
+                       colors=None, opacity=1., linewidth=0.1,
+                       lod=False, lod_points=10 ** 4, lod_points_size=30):
 
-    peaks_dirs = actor._makeNd(peaks_dirs, 5)
-    if peaks_values is not None:
-        peaks_values = actor._makeNd(peaks_values, 4)
+    xyz = np.ascontiguousarray(np.array(np.nonzero(mask)).T)
+    masked_sh = odfsh[mask] # Assemble masked sh
+    masked_radii = np.einsum('vj,pj->vp', Binv.T, masked_sh) # Radii
+    index = np.argmax(masked_radii, axis=0)
+    peak_dirs = vertices[index]
+    peak_values = np.amax(masked_radii, axis=0)
+    peak_values = peak_values*scale/np.max(peak_values)
+    list_dirs = []
+    for (i, peak) in enumerate(peak_values):
+        if peak > 0:
+            symm = np.vstack((-peak_dirs[i,:]*peak + xyz[i],
+                              peak_dirs[i,:]*peak + xyz[i]))
+            list_dirs.append(symm)
+    return actor.streamtube(list_dirs, colors=colors,
+                            opacity=opacity, linewidth=linewidth,
+                            lod=lod, lod_points=lod_points,
+                            lod_points_size=lod_points_size)
 
-    grid_shape = np.array(peaks_dirs.shape[:3])
+def principal_slicer_sparse(odfsh, Binv, vertices, mask=None, affine=None, scale=1,
+                            colors=None, opacity=1., linewidth=0.1,
+                            lod=False, lod_points=10 ** 4, lod_points_size=30):
 
+    xyz = np.ascontiguousarray(np.array(np.nonzero(mask)).T)
+
+    # Mask
+    masked_sh = odfsh[mask] # Assemble masked sh
+    
+    # Calculate evals, evecs, principal
+    M = np.load(os.path.join(os.path.dirname(__file__), 'harmonics/sh2tensor.npy'))
+    Di = np.einsum('il,ml->im', masked_sh[:,0:6], M)
+    D = np.zeros((Di.shape[0],)+(3,3), dtype=np.float32)
+    D[...,0,0] = Di[...,0]; D[...,0,1] = Di[...,3]; D[...,0,2] = Di[...,5];
+    D[...,1,0] = Di[...,3]; D[...,1,1] = Di[...,1]; D[...,1,2] = Di[...,4];
+    D[...,2,0] = Di[...,5]; D[...,2,1] = Di[...,4]; D[...,2,2] = Di[...,2];
+    evals, evecs = np.linalg.eigh(D)
+    peak_dirs = evecs[...,-1]
+    peak_values = evals[...,-1]*scale/np.max(evals)
+    list_dirs = []
+    for (i, peak) in enumerate(peak_values):
+        if peak > 0:
+            symm = np.vstack((-peak_dirs[i,:]*peak + xyz[i],
+                              peak_dirs[i,:]*peak + xyz[i]))
+            list_dirs.append(symm)
+    return actor.streamtube(list_dirs, colors=colors,
+                            opacity=opacity, linewidth=linewidth,
+                            lod=lod, lod_points=lod_points,
+                            lod_points_size=lod_points_size)
+
+def tensor_slicer_sparse(odfsh, affine=None, mask=None, sphere=None, scale=2.2,
+                  norm=True, opacity=1., scalar_colors=None):
     if mask is None:
-        mask = np.ones(grid_shape).astype(np.bool)
+        mask = np.ones(odfsh.shape[:3], dtype=np.bool)
+    else:
+        mask = mask.astype(np.bool)
 
-    class PeakSlicerActor(vtk.vtkLODActor):
+    szx, szy, szz = odfsh.shape[:3]
+
+    class TensorSlicerActor(vtk.vtkLODActor):
 
         def display_extent(self, x1, x2, y1, y2, z1, z2):
-            tmp_mask = np.zeros(grid_shape, dtype=np.bool)
+            tmp_mask = np.zeros(odfsh.shape[:3], dtype=np.bool)
             tmp_mask[x1:x2 + 1, y1:y2 + 1, z1:z2 + 1] = True
             tmp_mask = np.bitwise_and(tmp_mask, mask)
 
-            ijk = np.ascontiguousarray(np.array(np.nonzero(tmp_mask)).T)
-            if len(ijk) == 0:
-                self.SetMapper(None)
-                return
-            if affine is not None:
-                ijk_trans = np.ascontiguousarray(apply_affine(affine, ijk))
-            list_dirs = []
-            for index, center in enumerate(ijk):
-                # center = tuple(center)
-                if affine is None:
-                    xyz = center[:, None]
-                else:
-                    xyz = ijk_trans[index][:, None]
-                xyz = xyz.T
-                for i in range(peaks_dirs[tuple(center)].shape[-2]):
-
-                    if peaks_values is not None:
-                        pv = peaks_values[tuple(center)][i]
-                    else:
-                        pv = 1.
-                    symm = np.vstack((-peaks_dirs[tuple(center)][i] * pv + xyz,
-                                      peaks_dirs[tuple(center)][i] * pv + xyz))
-                    list_dirs.append(symm)
-
-            self.mapper = actor.line(list_dirs, colors=colors,
-                                     opacity=opacity, linewidth=linewidth,
-                                     lod=lod, lod_points=lod_points,
-                                     lod_points_size=lod_points_size).GetMapper()
+            self.mapper = _tensor_slicer_mapper(odfsh,
+                                                affine=affine,
+                                                mask=tmp_mask,
+                                                sphere=sphere,
+                                                scale=scale,
+                                                norm=False,
+                                                opacity=opacity,
+                                                scalar_colors=scalar_colors)
             self.SetMapper(self.mapper)
 
         def display(self, x=None, y=None, z=None):
@@ -405,9 +439,97 @@ def peak_slicer(peaks_dirs, peaks_values=None, mask=None, affine=None,
             if z is not None:
                 self.display_extent(0, szx - 1, 0, szy - 1, z, z)
 
-    peak_actor = PeakSlicerActor()
+    tensor_actor = TensorSlicerActor()
+    tensor_actor.display_extent(0, szx - 1, 0, szy - 1, 0, szz - 1)
+    return tensor_actor
 
-    szx, szy, szz = grid_shape
-    peak_actor.display_extent(0, szx - 1, 0, szy - 1, 0, szz - 1)
+def _tensor_slicer_mapper(odfsh, affine=None, mask=None, sphere=None, scale=2.2,
+                          norm=True, opacity=1., scalar_colors=None):
 
-    return peak_actor
+    if mask is None:
+        mask = np.ones(evals.shape[:3])
+
+    ijk = np.ascontiguousarray(np.array(np.nonzero(mask)).T)
+    if len(ijk) == 0:
+        return None
+
+    if affine is not None:
+        ijk = np.ascontiguousarray(apply_affine(affine, ijk))
+
+    faces = np.asarray(sphere.faces, dtype=int)
+    vertices = sphere.vertices
+
+    # Mask
+    masked_sh = odfsh[ijk[:,0], ijk[:,1], ijk[:,2]] # Assemble masked sh
+    
+    # Calculate evals, evecs, principal
+    M = np.load(os.path.join(os.path.dirname(__file__), 'harmonics/sh2tensor.npy'))
+    Di = np.einsum('il,ml->im', masked_sh[:,0:6], M)
+    D = np.zeros((Di.shape[0],)+(3,3), dtype=np.float32)
+    D[...,0,0] = Di[...,0]; D[...,0,1] = Di[...,3]; D[...,0,2] = Di[...,5];
+    D[...,1,0] = Di[...,3]; D[...,1,1] = Di[...,1]; D[...,1,2] = Di[...,4];
+    D[...,2,0] = Di[...,5]; D[...,2,1] = Di[...,4]; D[...,2,2] = Di[...,2];
+    evals2, evecs2 = np.linalg.eigh(D)
+    pr2 = evecs2[...,-1]
+    
+    # Calculate vertices
+    masked_radii = np.einsum('ij,kj->kij', evals2, vertices) # Scale
+    masked_radii2 = np.einsum('ijk,lik->lij', evecs2, masked_radii) # Rotate
+    xyz_vertices = masked_radii2*scale + ijk # Vertices
+
+    all_xyz2 = xyz_vertices.reshape(-1, xyz_vertices.shape[-1], order='F') # Reshape
+    all_xyz_vtk = numpy_support.numpy_to_vtk(np.ascontiguousarray(all_xyz2), deep=True) # Convert to vtk
+
+    from dipy.viz.colormap import orient2rgb
+    scalar_colors2 = orient2rgb(pr2.reshape(-1, pr2.shape[-1])).reshape(pr2.shape)
+    cols2 = np.zeros((scalar_colors2.shape[0],) + sphere.vertices.shape, dtype='f4')
+    
+    # Faces and colors
+    all_faces = []
+    for (k, center) in enumerate(ijk):
+        all_faces.append(faces + k * xyz_vertices.shape[0])
+
+    cols01 = np.einsum('ij,ikj->ikj', scalar_colors2, np.ones((scalar_colors2.shape[0],) + sphere.vertices.shape))
+    cols = np.interp(cols01, [0, 1], [0, 255]).astype('ubyte')
+
+    all_faces = np.concatenate(all_faces)
+    all_faces = np.hstack((3 * np.ones((len(all_faces), 1)),
+                           all_faces))
+    ncells = len(all_faces)
+
+    all_faces = np.ascontiguousarray(all_faces.ravel(), dtype='i8')
+    all_faces_vtk = numpy_support.numpy_to_vtkIdTypeArray(all_faces,
+                                                          deep=True)
+
+    points = vtk.vtkPoints()
+    points.SetData(all_xyz_vtk)
+
+    cells = vtk.vtkCellArray()
+    cells.SetCells(ncells, all_faces_vtk)
+
+    cols = np.ascontiguousarray(
+        np.reshape(cols, (cols.shape[0] * cols.shape[1],
+                   cols.shape[2])), dtype='f4')
+
+    vtk_colors = numpy_support.numpy_to_vtk(
+        cols,
+        deep=True,
+        array_type=vtk.VTK_UNSIGNED_CHAR)
+
+    vtk_colors.SetName("Colors")
+
+    polydata = vtk.vtkPolyData()
+    polydata.SetPoints(points)
+    polydata.SetPolys(cells)
+    polydata.GetPointData().SetScalars(vtk_colors)
+
+    mapper = vtk.vtkPolyDataMapper()
+    mapper.SetInputData(polydata)
+
+    return mapper
+
+def _makeNd(array, ndim):
+    """Pads as many 1s at the beginning of array's shape as are need to give
+    array ndim dimensions."""
+    new_shape = (1,) * (ndim - array.ndim) + array.shape
+    return array.reshape(new_shape)
