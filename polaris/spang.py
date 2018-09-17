@@ -75,7 +75,7 @@ class Spang:
         pos = (-0.05, 1.05, 0.5, 0.55) # Arrow and label positions
         vmin = 0
         vmax = 1
-        inches = 2
+        inches = 4
         rows = 2
         cols = 3
         colormap = 'Reds'

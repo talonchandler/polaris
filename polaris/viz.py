@@ -118,7 +118,7 @@ def plot5d(filename, data, row_labels=None, col_labels=None, yscale_label=None,
     if normalize:
         data = data/np.max(data)
     
-    inches = 2
+    inches = 4
     rows = data.shape[-1]
     cols = data.shape[-2] + 1
     widths = [1]*cols
@@ -172,10 +172,10 @@ def plot_images(images, f, spec, row, col, col_labels, row_labels, vmin, vmax,
                     ax.get_yaxis().set_visible(False)
                     r = 1.2
                     zs = 0.2
-                    ax.annotate('$x$', xy=(0,0), xytext=(-r*np.sqrt(3)/2,-r*np.sqrt(3)/2+zs), xycoords='data', textcoords='data', va='center', ha='center', fontsize=6)
-                    ax.annotate('$y$', xy=(0,0), xytext=(r*np.sqrt(3)/2,-r*np.sqrt(3)/2+zs), xycoords='data', textcoords='data', va='center', ha='center', fontsize=6)
-                    ax.annotate('$z$', xy=(0,0), xytext=(0,r+zs), xycoords='data', textcoords='data', va='center', ha='center', fontsize=6)
-                    ax.annotate(bar_label, xy=(0,0), xytext=(0, -1.75), xycoords='data', textcoords='data', va='center', ha='center', fontsize=6)
+                    ax.annotate('$x$', xy=(0,0), xytext=(-r*np.sqrt(3)/2,-r*np.sqrt(3)/2+zs), xycoords='data', textcoords='data', va='center', ha='center', fontsize=12)
+                    ax.annotate('$y$', xy=(0,0), xytext=(r*np.sqrt(3)/2,-r*np.sqrt(3)/2+zs), xycoords='data', textcoords='data', va='center', ha='center', fontsize=12)
+                    ax.annotate('$z$', xy=(0,0), xytext=(0,r+zs), xycoords='data', textcoords='data', va='center', ha='center', fontsize=12)
+                    ax.annotate(bar_label, xy=(0,0), xytext=(0, -1.75), xycoords='data', textcoords='data', va='center', ha='center', fontsize=12)
             if image is not None:
                 im = misc.imread(image)
                 ax.imshow(im, interpolation='none', origin='upper', extent=[-24, 24, -24, 24], aspect=1)
@@ -183,7 +183,7 @@ def plot_images(images, f, spec, row, col, col_labels, row_labels, vmin, vmax,
                 ax.get_xaxis().set_visible(False)
                 ax.get_yaxis().set_visible(False)
             if col == (cols - 1) and row == rows - 1 and a == 1 and b == 1 and yscale_label is not None:
-                ax.annotate(yscale_label, xy=(x_frac/2,-0.2), xytext=(x_frac/2, -0.2), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=6)
+                ax.annotate(yscale_label, xy=(x_frac/2,-0.2), xytext=(x_frac/2, -0.2), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=12)
                 ax.annotate('', xy=(0, -0.1), xytext=(x_frac, -0.1), xycoords='axes fraction', textcoords='axes fraction', va='center', arrowprops=dict(arrowstyle='|-|, widthA=0.2, widthB=0.2', shrinkA=0.05, shrinkB=0.05, lw=0.5))
                 
 def plot_colorbar(ax, spec, vmin, vmax, colormap, bar_label=''):
@@ -197,7 +197,7 @@ def plot_colorbar(ax, spec, vmin, vmax, colormap, bar_label=''):
               extent=[vmin,vmax,vmin,vmax], origin='lower', aspect=1/12)
     ax.set_xlim([vmin,vmax])
     ax.set_ylim([vmin,vmax])
-    ax.tick_params(direction='out', left=True, right=False, labelsize=6, width=0.5)
+    ax.tick_params(direction='out', left=True, right=False, labelsize=12, width=0.5)
     ax.yaxis.set_ticks([])
     ax.xaxis.tick_top()
     for axis in ['top','bottom','left','right']:
@@ -206,25 +206,26 @@ def plot_colorbar(ax, spec, vmin, vmax, colormap, bar_label=''):
         ax.xaxis.set_ticks([-1.0, 0, 1.0])
     else:
         ax.xaxis.set_ticks([0, 1])
-    ax.annotate(bar_label, xy=(0,0), xytext=(0.5, -3), xycoords='data', textcoords='data', va='center', ha='center', fontsize=6)
+    ax.annotate(bar_label, xy=(0,0), xytext=(0.5, -3), xycoords='data', textcoords='data', va='center', ha='center', fontsize=12)
 
 def draw_annotations(ax, row, col, row_labels, col_labels, pos=(-0.05, 1.05, 0.5, 0.5)):
     xc = pos[0]
     yc = pos[1]
     d1 = pos[2]
     d2 = pos[3]
+    o = 0.05
     ax.annotate('', xy=(xc,yc), xytext=(xc+d1, yc), xycoords='axes fraction', textcoords='axes fraction', va='center', arrowprops=dict(arrowstyle="<-", shrinkB=0, lw=0.5))
     ax.annotate('', xy=(xc,yc), xytext=(xc-d1, yc), xycoords='axes fraction', textcoords='axes fraction', ha='center', arrowprops=dict(arrowstyle="<-", shrinkB=0, lw=0.5))
     ax.annotate('', xy=(xc,yc), xytext=(xc, yc+d1), xycoords='axes fraction', textcoords='axes fraction', ha='center', arrowprops=dict(arrowstyle="<-", shrinkB=0, lw=0.5))
     ax.annotate('', xy=(xc,yc), xytext=(xc, yc-d1), xycoords='axes fraction', textcoords='axes fraction', va='center', arrowprops=dict(arrowstyle="<-", shrinkB=0, lw=0.5))
-    ax.annotate('$x$', xy=(xc,yc), xytext=(xc+d2, yc), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=6)
-    ax.annotate('$z$', xy=(xc,yc), xytext=(xc-d2, yc), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=6)
-    ax.annotate('$y$', xy=(xc,yc), xytext=(xc, yc+d2), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=6)
-    ax.annotate('$z$', xy=(xc,yc), xytext=(xc, yc-d2), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=6)
+    ax.annotate('$x$', xy=(xc,yc), xytext=(xc+d2+o, yc), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=12)
+    ax.annotate('$z$', xy=(xc,yc), xytext=(xc-d2-o, yc), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=12)
+    ax.annotate('$y$', xy=(xc,yc), xytext=(xc, yc+d2+o), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=12)
+    ax.annotate('$z$', xy=(xc,yc), xytext=(xc, yc-d2-o), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=12)
     if col_labels is not None:
-        ax.annotate(col_labels[row,col], xy=(xc,yc), xytext=(0, 2.2), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=6)
+        ax.annotate(col_labels[row,col], xy=(xc,yc), xytext=(0, 2.2), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=12)
     if col == 0 and row_labels is not None:
-        ax.annotate(row_labels[row], xy=(xc,yc), xytext=(-1.35, 1), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=6, rotation=90)
+        ax.annotate(row_labels[row], xy=(xc,yc), xytext=(-1.35, 1), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=12, rotation=90)
 
 def odf_sparse(odfsh, Binv, affine=None, mask=None, sphere=None, scale=2.2,
                norm=True, radial_scale=True, opacity=1.,
