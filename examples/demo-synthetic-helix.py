@@ -23,15 +23,13 @@ phant = phantom.three_helix(vox_dim=vox_dim, px=px)
 # px = (32,32,32)
 # phant = phantom.bead(orientation=[1,0,0], kappa=30, vox_dim=vox_dim, px=px)
 
-# Calculate phantom statistics and save
-# phant.calc_stats()
-# masking is necessary for fast rendering
+# Mask for fast rendering
 mask = phant.density() > 0.1
 # uncomment and try "interact=True" to interact with the phantom
 # phant.visualize(folder+'phantom/', mask=mask, interact=False, video=True,
 #                 n_frames=15)
 phant.save_stats(folder+'phantom/')
-phant.save_summary(folder+'phantom.pdf', mask=mask, skip_n=1)
+phant.save_summary(folder+'phantom.pdf', mask=mask)
 
 # Specify microscope
 # try "det_nas = [0.8, 0.8]" for symmetric diSPIM
@@ -57,7 +55,6 @@ data1.save_tiff(folder+'data/', diSPIM_format=True)
 phant.f = m.pinv(data1.g, eta=0)
 
 # Calculate reconstruction statistics and save
-# phant.calc_stats()
 mask = phant.density() > 0.1
 # phant.visualize(folder+'phantom-recon/', mask=mask, interact=False, video=True,
 #                 n_frames=15)

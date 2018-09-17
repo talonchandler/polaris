@@ -7,17 +7,18 @@ from polaris import spang, phantom, data
 from polaris.micro import multi
 import numpy as np
 
-# Make output folder
-folder = './guv-recon/'
+# Specify input and output
+in_folder = './guv-data/' 
+out_folder = './guv-recon/'
 import os
-if not os.path.exists(folder):
-    os.makedirs(folder)
+if not os.path.exists(out_folder):
+    os.makedirs(out_folder)
 
 # Read data and save mips
 vox_dim = (130,130,130) # nm
 data1 = data.Data(vox_dim=vox_dim, det_nas=[1.1, 0.71])
 order = np.array([[2, 1, 0, 3], [2, 3, 0, 1]])
-data1.read_tiff('./guv-data/', order=order)
+data1.read_tiff(in_folder, order=order)
 
 # Model for uniform distributions
 # Build microscope model
@@ -44,10 +45,19 @@ cal_data[1,:] = cal_data[1,order[1,:]] # reorder
 # Apply corrections
 data1.remove_background()
 data1.apply_calibration_correction(cal_data, expected)
-# Adjust for pixel sizes 2 powers for input power, 3 powers for voxel size
-data1.g[...,0] = (1.1/0.71)**5*data1.g[...,0]
-data1.save_mips(folder + 'data-corrected.pdf', normalize=True)
-data1.save_tiff(folder+'data-corrected/', diSPIM_format=True) 
+
+# Adjust input power
+data1.g[...,0] = (1.1/0.71)**2*data1.g[...,0]
+
+# Correct voxel sizes
+Avox = np.array([0.13, 0.13, 0.549])
+Bvox = np.array([0.227, 0.227, 0.8358])
+vox_factor = np.prod(Bvox/Avox)
+data1.g[...,0] = vox_factor*data1.g[...,0]
+
+# Save corrected data
+data1.save_mips(out_folder + 'data-corrected.pdf', normalize=True)
+data1.save_tiff(out_folder+'data-corrected/', diSPIM_format=True) 
 
 # Calculate system matrix
 m.calc_H()
@@ -55,13 +65,19 @@ m.calc_H()
 # m.load_H(folder + 'H.npz')
 
 # Calculate pseudoinverse solution
-# set "eta" to a positive number for Tikhonov regularization
-spang1.f = m.pinv(data1.g, eta=1e0)
+# set "etas" to a list of positive number for Tikhonov regularization
+etas = [1e-1]
+for eta in etas:
+    eta_string = '{:.1e}'.format(eta)
+    print("Reconstructing with eta = " + eta_string)
+    
+    spang1.f = m.pinv(data1.g, eta=eta)
 
-# Calculate reconstruction statistics and save
-spang1.calc_stats()
-mask = spang1.density > 0.5
-spang1.visualize(folder+'guv-recon/', mask=mask, interact=False, video=True,
-                 n_frames=15, skip_n=3)
-spang1.save_stats(folder+'guv-recon/')
-spang1.save_summary(folder+'guv-recon.pdf', mask=mask, skip_n=3)
+    # Calculate reconstruction statistics and save
+    density_filter = 0.2
+    # spang1.visualize(out_folder+'guv-recon-' + eta_string + '/',
+    #                  mask=spang1.density() > density_filter, interact=False,
+    #                  video=True, n_frames=15, skip_n=7, viz_type='PEAK')
+    spang1.save_stats(out_folder+'guv-recon/')
+    spang1.save_summary(out_folder+'guv-recon.pdf',
+                        density_filter=density_filter, skip_n=7)

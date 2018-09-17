@@ -13,6 +13,17 @@ def spZnm(l, m, theta, phi):
         return np.real((sph_harm(m, l, phi, theta) -
                         ((-1)**m)*sph_harm(-m, l, phi, theta))/(np.sqrt(2)*1j))
 
+# def spZnm(l, m, theta, phi):
+#     if m > 0:
+#         return np.real((sph_harm(m, l, phi, theta) +
+#                 np.conj(sph_harm(m, l, phi, theta)))/(np.sqrt(2)))
+#     elif m == 0:
+#         return np.real(sph_harm(m, l, phi, theta))
+#     elif m < 0:
+#        THE FIRST MINUS SIGN IN THE NEXT LINE IS THE PROBLEM
+#         return  -np.real((sph_harm(m, l, phi, theta) -
+#                  np.conj(sph_harm(m, l, phi, theta)))/(np.sqrt(2)*1j))
+
 # Calculate spherical harmonic coefficients of delta
 def xyz_sft(xyz, max_l=4):
     if xyz[0] == 0 and xyz[1] == 0 and xyz[2] == 0:

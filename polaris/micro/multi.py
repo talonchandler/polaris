@@ -57,7 +57,7 @@ class MultiMicroscope:
             x = pols[v,:,0]
             y = pols[v,:,1]
         # TODO: Move this to chcoeffs
-        out = np.outer(tf[0,:], np.ones(4)) + np.outer(tf[1,:], 2*x*y) + np.outer(tf[2,:], x**2 - y**2)
+        out = np.outer(tf[0,:], np.ones(4)) + np.outer(tf[1,:], -2*x*y) + np.outer(tf[2,:], x**2 - y**2)
 
         return out # return s x p
 

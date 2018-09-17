@@ -163,6 +163,10 @@ def plot_images(images, f, spec, row, col, col_labels, row_labels, vmin, vmax,
                     plot_colorbar(ax, spec, vmin, vmax, colormap, bar_label=bar_label)
                 else:
                     im = misc.imread('../assets/rgb.png')
+                    bb = ax.get_position()
+                    bb.y0 += 0.04
+                    bb.y1 += 0.04
+                    ax.set_position(bb)
                     ax.imshow(im, interpolation='none', origin='upper', extent=[-1, 1, -1, 1], aspect=1)
                     s = 3
                     ax.set_xlim([-s,s])
@@ -175,7 +179,7 @@ def plot_images(images, f, spec, row, col, col_labels, row_labels, vmin, vmax,
                     ax.annotate('$x$', xy=(0,0), xytext=(-r*np.sqrt(3)/2,-r*np.sqrt(3)/2+zs), xycoords='data', textcoords='data', va='center', ha='center', fontsize=12)
                     ax.annotate('$y$', xy=(0,0), xytext=(r*np.sqrt(3)/2,-r*np.sqrt(3)/2+zs), xycoords='data', textcoords='data', va='center', ha='center', fontsize=12)
                     ax.annotate('$z$', xy=(0,0), xytext=(0,r+zs), xycoords='data', textcoords='data', va='center', ha='center', fontsize=12)
-                    ax.annotate(bar_label, xy=(0,0), xytext=(0, -1.75), xycoords='data', textcoords='data', va='center', ha='center', fontsize=12)
+                    ax.annotate(bar_label, xy=(0,0), xytext=(0, -1.5), xycoords='data', textcoords='data', va='top', ha='center', fontsize=12)
             if image is not None:
                 im = misc.imread(image)
                 ax.imshow(im, interpolation='none', origin='upper', extent=[-24, 24, -24, 24], aspect=1)
@@ -192,6 +196,8 @@ def plot_colorbar(ax, spec, vmin, vmax, colormap, bar_label=''):
     bb = ax.get_position()
     bb.x0 += 0.02
     bb.x1 += -0.02
+    bb.y0 += 0.02
+    bb.y1 += 0.02
     ax.set_position(bb)
     ax.imshow(X, cmap=colormap, vmin=vmin, vmax=vmax, interpolation='none',
               extent=[vmin,vmax,vmin,vmax], origin='lower', aspect=1/12)
@@ -206,7 +212,7 @@ def plot_colorbar(ax, spec, vmin, vmax, colormap, bar_label=''):
         ax.xaxis.set_ticks([-1.0, 0, 1.0])
     else:
         ax.xaxis.set_ticks([0, 1])
-    ax.annotate(bar_label, xy=(0,0), xytext=(0.5, -3), xycoords='data', textcoords='data', va='center', ha='center', fontsize=12)
+    ax.annotate(bar_label, xy=(0,0), xytext=(0.5, -2), xycoords='data', textcoords='data', va='top', ha='center', fontsize=12)
 
 def draw_annotations(ax, row, col, row_labels, col_labels, pos=(-0.05, 1.05, 0.5, 0.5)):
     xc = pos[0]
@@ -462,6 +468,9 @@ def _tensor_slicer_mapper(odfsh, affine=None, mask=None, sphere=None, scale=2.2,
 
     # Mask
     masked_sh = odfsh[ijk[:,0], ijk[:,1], ijk[:,2]] # Assemble masked sh
+
+    # Normalize
+    masked_sh = masked_sh/np.max(masked_sh[:,0])
     
     # Calculate evals, evecs, principal
     M = np.load(os.path.join(os.path.dirname(__file__), 'harmonics/sh2tensor.npy'))
