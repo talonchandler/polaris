@@ -189,10 +189,6 @@ class Spang:
         # Mask
         if mask is None:
             mask = np.ones((self.X, self.Y, self.Z), dtype=np.bool)
-        # for x in [-1,0]:
-        #     for y in [-1,0]:
-        #         for z in [-1,0]:
-        #             mask[x,y,z] = True
         skip_mask = np.zeros(mask.shape, dtype=np.bool)
         skip_mask[::skip_n,::skip_n,::skip_n] = 1
         mask = np.logical_and(mask, skip_mask)
@@ -301,6 +297,9 @@ class Spang:
                 writer.Write()
                 az = naz
 
+        if interact:
+            window.show(ren)
+                
         # Generate video (requires ffmpeg)
         if video:
             print('Generating video from frames')
@@ -309,8 +308,6 @@ class Spang:
                              '-loglevel', 'panic',
                              '-i', out_path+'%06d.png', out_path[:-1]+'.avi'])
             subprocess.call(['rm', '-r', out_path])
-        if interact:
-            window.show(ren)
 
     def save_mips(self, filename='spang_mips.pdf'):
         print('Writing '+filename)

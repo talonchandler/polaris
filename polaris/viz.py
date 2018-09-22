@@ -131,8 +131,8 @@ def plot5d(filename, data, row_labels=None, col_labels=None, yscale_label=None,
     for row in range(rows):
         for col in range(cols):
             if col != cols - 1:
-                data3 = data[:,:,:,col,row]
-                plot_parallels(data3, out_path='parallels/', outer_box=False,
+                print('Plotting row ' + str(row) + ' column ' + str(col))
+                plot_parallels(data[:,:,:,col,row], out_path='parallels/', outer_box=False,
                                    axes=False, clip_neg=False, azimuth=0,
                                    elevation=0)
                 plot_images(['parallels/yz.png', 'parallels/xy.png', 'parallels/xz.png'],
@@ -162,7 +162,7 @@ def plot_images(images, f, spec, row, col, col_labels, row_labels, vmin, vmax,
                 if bar:
                     plot_colorbar(ax, spec, vmin, vmax, colormap, bar_label=bar_label)
                 else:
-                    im = misc.imread('../assets/rgb.png')
+                    im = misc.imread(os.path.join(os.path.dirname(__file__), '../assets/rgb.png'))
                     bb = ax.get_position()
                     bb.y0 += 0.04
                     bb.y1 += 0.04
@@ -376,7 +376,7 @@ def peak_slicer_sparse(odfsh, Binv, vertices, mask=None, affine=None, scale=1,
                               peak_dirs[i,:]*peak + xyz[i]))
             list_dirs.append(symm)
     return actor.streamtube(list_dirs, colors=colors,
-                            opacity=opacity, linewidth=linewidth,
+                            opacity=opacity, linewidth=linewidth*scale,
                             lod=lod, lod_points=lod_points,
                             lod_points_size=lod_points_size)
 
@@ -406,7 +406,7 @@ def principal_slicer_sparse(odfsh, Binv, vertices, mask=None, affine=None, scale
                               peak_dirs[i,:]*peak + xyz[i]))
             list_dirs.append(symm)
     return actor.streamtube(list_dirs, colors=colors,
-                            opacity=opacity, linewidth=linewidth,
+                            opacity=opacity, linewidth=linewidth*scale,
                             lod=lod, lod_points=lod_points,
                             lod_points_size=lod_points_size)
 

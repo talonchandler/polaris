@@ -42,6 +42,7 @@ class Data:
             self.g[...,1] = self.g[...,1] - level[1]
 
     def apply_calibration_correction(self, cal_data, expected):
+        # TODO: Broadcasting is a memory hog
         self.g = self.g*expected.T/cal_data.T
             
     def save_mips(self, filename='mips.pdf', normalize=False):

@@ -162,9 +162,8 @@ class MultiMicroscope:
         return g/np.max(g)
 
     def pinv(self, g, eta=0):
-        print('Applying pseudoinverse operator')
-        
         # 3D FT
+        print('Taking 3D Fourier transform')        
         G = np.fft.rfftn(g, axes=(0,1,2))
         G2 = np.reshape(G, G.shape[0:3] + (self.P*self.V,))
         
@@ -185,7 +184,8 @@ class MultiMicroscope:
         #     F[xend,ystart,z,:] = np.einsum('xysd,xyd->xys', Pinv[1:-1,:,:,:], G2[xend,ystart,z,:])
         #     F[xstart,yend,z,:] = np.einsum('xysd,xyd->xys', Pinv[:,1:-1,:,:], G2[xstart,yend,z,:])
         #     F[xend,yend,z,:] = np.einsum('xysd,xyd->xys', Pinv[1:-1,1:-1,:,:], G2[xend,yend,z,:])            
-        
+
+        print('Applying pseudoinverse operator')
         import multiprocessing as mp
         pool = mp.Pool(processes=mp.cpu_count())
         args = []
@@ -195,6 +195,7 @@ class MultiMicroscope:
         F = np.array(result)
         
         # 3D IFT
+        print('Taking inverse 3D Fourier transform')        
         f = np.fft.irfftn(np.moveaxis(F, 0, 2), s=g.shape[0:3], axes=(0,1,2))
 
         return f
