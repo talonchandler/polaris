@@ -6,6 +6,8 @@ np.seterr(divide='ignore', invalid='ignore')
 import matplotlib.pyplot as plt
 import matplotlib
 import matplotlib.gridspec as gridspec
+import logging
+log = logging.getLogger('log')
 
 matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
 import os
@@ -63,7 +65,7 @@ class MultiMicroscope:
 
     def calc_H(self):
         # Transverse transfer function
-        print('Computing H for view 0')
+        log.info('Computing H for view 0')
         dx = np.fft.rfftfreq(self.X, d=self.data.vox_dim[0])*self.lamb/self.micros[0].det.na
         dy = np.fft.rfftfreq(self.Y, d=self.data.vox_dim[1])*self.lamb/self.micros[0].det.na
         dz = np.fft.rfftfreq(self.Z, d=self.data.vox_dim[2])*self.lamb/self.micros[0].det.na
@@ -77,7 +79,7 @@ class MultiMicroscope:
         else:
             self.Hz = np.ones(dz.shape, dtype=np.float32)
 
-        print('Computing H for view 1')
+        log.info('Computing H for view 1')
         dx = np.fft.rfftfreq(self.X, d=self.data.vox_dim[0])*self.lamb/self.micros[1].det.na
         dy = np.fft.rfftfreq(self.Y, d=self.data.vox_dim[1])*self.lamb/self.micros[1].det.na
         dz = np.fft.rfftfreq(self.Z, d=self.data.vox_dim[2])*self.lamb/self.micros[1].det.na
@@ -90,6 +92,11 @@ class MultiMicroscope:
             self.Hx = np.exp(-(dx**2)/(2*(self.sigma_ax**2)))
         else:
             self.Hx = np.ones(dx.shape)
+
+    def lake_response(self, data):
+        e0 = self.calc_point_H(0, 0, 0, 0, data.pols_norm)[0,:]
+        e1 = self.calc_point_H(0, 0, 0, 1, data.pols_norm)[0,:]
+        return np.vstack([e0, e1])
             
     def save_H(self, filename):
         np.savez(filename, Hxy=self.Hxy, Hyz=self.Hyz, Hx=self.Hx, Hz=self.Hz)
@@ -102,7 +109,7 @@ class MultiMicroscope:
         self.Hz = files['Hz']
         
     def fwd(self, f, snr=None):
-        print('Applying forward operator')
+        log.info('Applying forward operator')
 
         # Truncate spang for angular bandlimit
         f = f[:,:,:,:self.jmax]
@@ -143,7 +150,7 @@ class MultiMicroscope:
         return g/np.max(g)
     
     def fwd_angular(self, f, snr=None, mask=None):
-        print('Applying angular forward operator')
+        log.info('Applying angular forward operator')
         g = np.zeros(self.data.g.shape)
         H = np.zeros((self.J, self.P, self.V))
         H[:,:,0] = self.calc_point_H(0, 0, 0, 0, self.data.pols_norm)
@@ -163,7 +170,7 @@ class MultiMicroscope:
 
     def pinv(self, g, eta=0):
         # 3D FT
-        print('Taking 3D Fourier transform')        
+        log.info('Taking 3D Fourier transform')        
         G = np.fft.rfftn(g, axes=(0,1,2))
         G2 = np.reshape(G, G.shape[0:3] + (self.P*self.V,))
         
@@ -185,7 +192,7 @@ class MultiMicroscope:
         #     F[xstart,yend,z,:] = np.einsum('xysd,xyd->xys', Pinv[:,1:-1,:,:], G2[xstart,yend,z,:])
         #     F[xend,yend,z,:] = np.einsum('xysd,xyd->xys', Pinv[1:-1,1:-1,:,:], G2[xend,yend,z,:])            
 
-        print('Applying pseudoinverse operator')
+        log.info('Applying pseudoinverse operator')
         import multiprocessing as mp
         pool = mp.Pool(processes=mp.cpu_count())
         args = []
@@ -193,15 +200,16 @@ class MultiMicroscope:
             args.append((z, G2[:,:,z,:], self.Hxy, self.Hyz[:,z,:,:], self.Hx, self.Hz, self.X, self.Y, self.J, self.P, self.V, eta, xstart, xend, ystart, yend))
         result = list(tqdm(pool.imap(compute_pinv, args), total=len(args)))
         F = np.array(result)
+        del result
         
         # 3D IFT
-        print('Taking inverse 3D Fourier transform')        
+        log.info('Taking inverse 3D Fourier transform')        
         f = np.fft.irfftn(np.moveaxis(F, 0, 2), s=g.shape[0:3], axes=(0,1,2))
 
         return f
     
     def pinv_angular(self, g, eta=0, mask=None):
-        print('Applying pseudoinverse operator')
+        log.info('Applying pseudoinverse operator')
         f = np.zeros(self.spang.f.shape)
         H = np.zeros((self.J, self.P, self.V))
         H[:,:,0] = self.calc_point_H(0, 0, 0, 0, self.data.pols_norm)

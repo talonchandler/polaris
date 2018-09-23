@@ -11,6 +11,8 @@ import vtk
 from tqdm import tqdm
 import tifffile
 import os
+import logging
+log = logging.getLogger('log')
 
 class Spang:
     """
@@ -61,7 +63,7 @@ class Spang:
         return np.nan_to_num(np.sqrt(1 - (self.f[...,0]**2)/np.sum(self.f**2, axis=-1)))
 
     def tensor(self):
-        print("Calculating tensor fits")
+        log.info("Calculating tensor fits")
         M = np.load(os.path.join(os.path.dirname(__file__), 'harmonics/sh2tensor.npy'))
         Di = np.einsum('ijkl,lm->ijkm', self.f[...,0:6], M)
         D = np.zeros(self.f.shape[0:3]+(3,3), dtype=np.float32)
@@ -74,7 +76,7 @@ class Spang:
         
     def save_summary(self, filename='out.pdf', density_filter=None, mag=4,
                      mask=None, scale=1, keep_parallels=False, skip_n=1):
-        print('Generating ' + filename)
+        log.info('Generating ' + filename)
         if density_filter is not None:
             density_mask = self.density() > density_filter
             mask = np.logical_or(mask, density_mask).astype(np.bool)
@@ -171,7 +173,7 @@ class Spang:
                 elif col == 3:
                     viz.plot_colorbar(f, spec, row, col, vmin, vmax, colormap)
 
-        print('Saving ' + filename)
+        log.info('Saving ' + filename)
         # plt.subplots_adjust(bottom=0.3)
         f.savefig(filename, bbox_inches='tight')
         
@@ -180,7 +182,7 @@ class Spang:
                   size=(600,600), mag=4, video=False, viz_type='ODF', mask=None,
                   skip_n=1, scale=1, zoom=1.0, zoom_in=1.0, interact=False,
                   save_parallels=False, gfa_filter=0):
-        print('Preparing to render ' + out_path)
+        log.info('Preparing to render ' + out_path)
         
         # Prepare output
         if not os.path.exists(out_path):
@@ -199,27 +201,27 @@ class Spang:
 
         # Add visuals to renderer
         if viz_type == "ODF":
-            print('Rendering '+str(np.sum(mask) - 8)+' ODFs')
+            log.info('Rendering '+str(np.sum(mask) - 8)+' ODFs')
             fodf_spheres = viz.odf_sparse(self.f, self.Binv, sphere=self.sphere,
                                           scale=skip_n*scale*0.5, norm=False,
                                           colormap='bwr', mask=mask,
                                           global_cm=True)
             ren.add(fodf_spheres)
         elif viz_type == "ELLIPSOID":
-            print('Rendering '+str(np.sum(mask) - 8)+' ellipsoids')
+            log.info('Rendering '+str(np.sum(mask) - 8)+' ellipsoids')
             fodf_peaks = viz.tensor_slicer_sparse(self.f,
                                                   sphere=self.sphere,
                                                   scale=skip_n*scale*0.5,
                                                   mask=mask)
             ren.add(fodf_peaks)
         elif viz_type == "PEAK":
-            print('Rendering '+str(np.sum(mask) - 8)+' peaks')
+            log.info('Rendering '+str(np.sum(mask) - 8)+' peaks')
             fodf_peaks = viz.peak_slicer_sparse(self.f, self.Binv, self.sphere.vertices, 
                                                 scale=skip_n*scale*0.5,
                                                 mask=mask)
             ren.add(fodf_peaks)
         elif viz_type == "PRINCIPAL":
-            print('Rendering '+str(np.sum(mask) - 8)+' principals')
+            log.info('Rendering '+str(np.sum(mask) - 8)+' principals')
             fodf_peaks = viz.principal_slicer_sparse(self.f, self.Binv, self.sphere.vertices, 
                                                      scale=skip_n*scale*0.5,
                                                      mask=mask)
@@ -263,7 +265,7 @@ class Spang:
         az = 0
         naz = np.ceil(360/n_frames)
         
-        print('Rendering ' + out_path)
+        log.info('Rendering ' + out_path)
         if save_parallels:
             filenames = ['yz', 'xy', 'xz']
             zooms = [zoom, 1.0, 1.0]
@@ -302,7 +304,7 @@ class Spang:
                 
         # Generate video (requires ffmpeg)
         if video:
-            print('Generating video from frames')
+            log.info('Generating video from frames')
             fps = np.ceil(n_frames/12)
             subprocess.call(['ffmpeg', '-nostdin', '-y', '-framerate', str(fps),
                              '-loglevel', 'panic',
@@ -310,7 +312,7 @@ class Spang:
             subprocess.call(['rm', '-r', out_path])
 
     def save_mips(self, filename='spang_mips.pdf'):
-        print('Writing '+filename)
+        log.info('Writing '+filename)
         col_labels = np.apply_along_axis(util.j2str, 1, np.arange(self.J)[:,None])[None,:]
         viz.plot5d(filename, self.f[...,None], col_labels=col_labels)
             
@@ -318,7 +320,7 @@ class Spang:
         if data is None:
             data = self.f
         
-        print('Writing '+filename)
+        log.info('Writing '+filename)
         with tifffile.TiffWriter(filename, imagej=True) as tif:
             if data.ndim == 4:
                 d = np.moveaxis(data, [2, 3, 1, 0], [0, 1, 2, 3])
