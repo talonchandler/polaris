@@ -91,12 +91,14 @@ def bead(orientation=[1,0,0], kappa=None, px=(32,32,32), vox_dim=(100,100,100)):
 
 def all_directions(px=(15,15,1), vox_dim=(100,100,100)):
     dims = px + (3,)
-    f = np.zeros(dims)
-    tp = np.array(np.meshgrid(np.linspace(0, np.pi/2, px[0]),
-                              np.linspace(0, np.pi, px[1]),
-                              np.linspace(0, 0, px[2])))
-    tp = np.moveaxis(tp, [0, 1], [-1, 1])
+    # f = np.zeros(dims)
+    # tp = np.array(np.meshgrid(np.linspace(0, np.pi/2, px[0]),
+    #                           np.linspace(0, np.pi, px[1]),
+    #                           np.linspace(0, 0, px[2])))
+    # tp = np.moveaxis(tp, [0, 1], [-1, 1])
 
-    xyz = np.apply_along_axis(util.tp2xyz, -1, tp)
+    # xyz = np.apply_along_axis(util.tp2xyz, -1, tp)
+    xyz = util.fibonacci_sphere(np.prod(np.array(px)), xyz=True).reshape(dims)
     f = np.apply_along_axis(util.xyz_sft, -1, xyz, max_l=4)
+
     return spang.Spang(f, vox_dim=vox_dim)

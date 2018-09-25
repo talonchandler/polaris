@@ -9,7 +9,7 @@ log.setLevel(logging.DEBUG)
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
 log.addHandler(ch)
-fh = logging.FileHandler('log.txt', mode='w')
+fh = logging.FileHandler('log.txt', mode='a')
 fh.setLevel(logging.DEBUG)
 log.addHandler(fh)
 

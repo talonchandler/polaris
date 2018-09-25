@@ -168,7 +168,7 @@ class MultiMicroscope:
                         g[x,y,z,:,:] = np.einsum('spv,s->pv', H, f[x,y,z,:])
         return g/np.max(g)
 
-    def pinv(self, g, eta=0):
+    def pinv(self, g, eta=0, padding=True):
         # 3D FT
         log.info('Taking 3D Fourier transform')        
         G = np.fft.rfftn(g, axes=(0,1,2))
@@ -178,19 +178,6 @@ class MultiMicroscope:
         xend = slice(None, -(self.X//2), -1)
         ystart = slice(0, (self.Y//2)+1)
         yend = slice(None, -(self.Y//2), -1)
-
-        # Full SVD Tensor multiplication baseline
-        # for z in tqdm(range(self.Hz.shape[0])):
-        #     H0 = self.Hz[z]*self.Hxy[:,:,:,:]
-        #     H1 = np.einsum('x,ysp->xysp', self.Hx, self.Hyz[:,z,:,:])
-        #     HH = np.reshape(np.stack((H0, H1), axis=-1), H0.shape[0:2] + (self.J, self.P*self.V))
-        #     u, s, vh = np.linalg.svd(HH, full_matrices=False) # Find SVD
-        #     sreg = np.where(s > 1e-7, s/(s**2 + eta), 0) # Regularize
-        #     Pinv = np.einsum('xysv,xyv,xyvd->xysd', u, sreg, vh, optimize=True)
-        #     F[xstart,ystart,z,:] = np.einsum('xysd,xyd->xys', Pinv[:,:,:,:], G2[xstart,ystart,z,:])
-        #     F[xend,ystart,z,:] = np.einsum('xysd,xyd->xys', Pinv[1:-1,:,:,:], G2[xend,ystart,z,:])
-        #     F[xstart,yend,z,:] = np.einsum('xysd,xyd->xys', Pinv[:,1:-1,:,:], G2[xstart,yend,z,:])
-        #     F[xend,yend,z,:] = np.einsum('xysd,xyd->xys', Pinv[1:-1,1:-1,:,:], G2[xend,yend,z,:])            
 
         log.info('Applying pseudoinverse operator')
         import multiprocessing as mp

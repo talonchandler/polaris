@@ -38,8 +38,12 @@ class Data:
         # By default subtract the average of a 10x10x10 ROI with corner at
         # (5,5,5) --- not too close to the corner
         if level is None:
-            self.g[...,0] = self.g[...,0] - np.mean(self.g[5:15,5:15,5:15,:,0])
-            self.g[...,1] = self.g[...,1] - np.mean(self.g[5:15,5:15,5:15,:,1])
+            B0 = np.mean(self.g[5:15,5:15,5:15,:,0])
+            B1 = np.mean(self.g[5:15,5:15,5:15,:,1])
+            log.info('A background: '+str(B0))
+            log.info('B background: '+str(B0))
+            self.g[...,0] = self.g[...,0] - B0 
+            self.g[...,1] = self.g[...,1] - B1
         else:
             self.g[...,0] = self.g[...,0] - level[0]
             self.g[...,1] = self.g[...,1] - level[1]
@@ -53,14 +57,32 @@ class Data:
         cal_data[1,:] = cal_data[1,order[1][:]] # reorder
         for p in range(self.P):
             for v in range(self.V):
-                self.g[...,p,v] = self.g[...,p,v]*lake_response[v,p]/cal_data[v,p]
+                correction = lake_response[v,p]/cal_data[v,p]
+                log.info('Calibration V'+str(v)+'P'+str(p)+' correction '+str(correction))
+                self.g[...,p,v] = self.g[...,p,v]*correction
 
-    def apply_power_correction(self):
-        self.g[...,0] = (1.1/0.71)**-2*self.g[...,0]
+    def apply_power_correction(self, correction=None):
+        if correction is None:
+            # correction = (self.det_nas[0]/self.det_nas[1])**2 # Naive
+            haA = np.arcsin(self.det_nas[0]/1.33)
+            haB = np.arcsin(self.det_nas[1]/1.33)
+            correction = (1 - np.cos(haA))/(1 - np.cos(haB))
+        log.info('Power correction '+str(correction))
+        self.g[...,0] = self.g[...,0]/correction
 
     def apply_voxel_size_correction(self, vox_dim_A, vox_dim_B):
-        vox_factor = np.prod(np.array(vox_dim_B)/np.array(vox_dim_A))
-        self.g[...,0] = vox_factor*self.g[...,0]
+        correction = np.prod(np.array(vox_dim_B)/np.array(vox_dim_A))
+        log.info('Voxel size correction '+str(correction))
+        self.g[...,0] = correction*self.g[...,0]
+
+    def apply_padding(self, width=2):
+        log.info('Padding data with '+str(width)+' zeros')
+        pads = [(width,width), (width,width), (width,width), (0,0), (0,0)]
+        self.g = np.pad(self.g, pads, mode='edge')
+
+    def apply_depadding(self, width=2):
+        log.info('Depadding after 3D inverse Fourier transform')             
+        self.g = self.g[width:-width, width:-width, width:-width, :, :]
             
     def save_mips(self, filename='mips.pdf', normalize=False):
         log.info('Saving '+filename)
@@ -96,6 +118,7 @@ class Data:
                 tw.save(data[:,:,:,:,:,None]) # TZCYXS
 
     def read_tiff(self, folder, roi=None, order=None):
+        log.info('ROI: ' + str(roi))
         for i, view in enumerate(['SPIMA', 'SPIMB']):
             for j in range(4):
                 filename = folder + view + '/' + view + '_reg_' + str(j) + '.tif'

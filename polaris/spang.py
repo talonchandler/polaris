@@ -340,3 +340,25 @@ class Spang:
             self.save_tiff(filename=folder+'sh.tif', data=self.f)
         self.save_tiff(filename=folder+'density.tif', data=self.density())
         self.save_tiff(filename=folder+'gfa.tif', data=self.gfa())
+
+    # In progress
+    # def visualize_difference(self, spang, filename='out.pdf'):
+    #     import pdb; pdb.set_trace()
+    #     # Take sft
+    #     base_sh = np.
+        
+    #     radii = np.einsum('vj,pj->vp', self.Binv.T, sh) # Radii
+    #     index = np.argmax(masked_radii, axis=0)
+    #     peak_dirs = vertices[index]
+
+    #     # Find peak
+
+    #     # Print both peaks
+    #     ptr = np.round(pt, 3)
+    #     ptr2 = np.round(pt2, 3)
+    #     if np.dot(ptr, [1,1,1]) > 0:
+    #         if np.dot(ptr2, [1,1,1]) < 0:
+    #             ptr2 = -ptr2
+    #         print('myline('+str(ptr[0])+','+str(ptr[1])+','+str(ptr[2])+','+
+    #               str(ptr2[0])+','+str(ptr2[1])+','+str(ptr2[2])+');')
+
