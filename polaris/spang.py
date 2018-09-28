@@ -2,10 +2,10 @@ import subprocess
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib import rc
-rc('text', usetex=True)
+#rc('text', usetex=True)
 from polaris import viz, util
 import numpy as np
-from dipy.viz import window, actor
+from dipy.viz import window, actor, fvtk
 from dipy.data import get_sphere
 import vtk
 from tqdm import tqdm
@@ -167,8 +167,8 @@ class Spang:
                                     vmin=vmin, vmax=vmax, colormap=colormap,
                                     rows=rows, cols=cols, x_frac=x_frac,
                                     yscale_label=yscale_label, pos=pos, bar=bar, bar_label=bar_label)
-                    if not keep_parallels:
-                        subprocess.call(['rm', '-r', 'parallels'])
+                    #if not keep_parallels:
+                        #subprocess.call(['rm', '-r', 'parallels'])
                     
                 elif col == 3:
                     viz.plot_colorbar(f, spec, row, col, vmin, vmax, colormap)
@@ -181,12 +181,12 @@ class Spang:
                   clip_neg=False, azimuth=0, elevation=0, n_frames=1,
                   size=(600,600), mag=4, video=False, viz_type='ODF', mask=None,
                   skip_n=1, scale=1, zoom=1.0, zoom_in=1.0, interact=False,
-                  save_parallels=False, gfa_filter=0):
+                  save_parallels=False, gfa_filter=0, my_cam=None, tiff=False):
         log.info('Preparing to render ' + out_path)
         
         # Prepare output
-        if not os.path.exists(out_path):
-            os.makedirs(out_path)
+        #if not os.path.exists(out_path):
+        #    os.makedirs(out_path)
             
         # Mask
         if mask is None:
@@ -198,7 +198,9 @@ class Spang:
         # Render
         ren = window.Renderer()
         ren.background([1,1,1])
-
+        line_color = np.array([0,0,0])
+        line_bcolor = np.array([1,1,1])
+        
         # Add visuals to renderer
         if viz_type == "ODF":
             log.info('Rendering '+str(np.sum(mask) - 8)+' ODFs')
@@ -226,6 +228,63 @@ class Spang:
                                                      scale=skip_n*scale*0.5,
                                                      mask=mask)
             ren.add(fodf_peaks)
+        elif viz_type == "VOLUME":
+            log.info('Rendering volume')
+            ren.background([1,1,1])
+            line_color = np.array([1,1,0])
+            line_bcolor = np.array([0,0,0])
+
+            # Set opacity
+            vol = np.interp(self.f[...,0], [self.f[...,0].min(), self.f[...,0].max()], [0, 255])
+            vol = vol.astype('uint8')
+
+            vol = np.zeros_like(vol)
+            vol[0:10,0:10,0:10] = 255
+            import pdb; pdb.set_trace()
+            
+            dataImporter = vtk.vtkImageImport()
+            data_string = vol.tostring()
+            dataImporter.CopyImportVoidPointer(data_string, len(data_string))
+            dataImporter.SetDataScalarTypeToUnsignedChar()
+            dataImporter.SetNumberOfScalarComponents(1)
+            dataImporter.SetDataExtent(0, self.X - 1, 0, self.Y - 1, 0, self.Z - 1)
+            dataImporter.SetWholeExtent(0, self.X - 1, 0, self.Y - 1, 0, self.Z - 1)
+
+            # Create transfer mapping scalar value to opacity
+            opacityTransferFunction = vtk.vtkPiecewiseFunction()
+            opacityTransferFunction.AddPoint(0, 0)
+            opacityTransferFunction.AddPoint(255, 1.0)
+
+            # Create transfer mapping scalar value to color
+            colorTransferFunction = vtk.vtkColorTransferFunction()
+            colorTransferFunction.AddRGBPoint(0.0, 0.0, 0.0, 0.0)
+            #colorTransferFunction.AddRGBPoint(64.0, 0.25, 0.25, 0.25)
+            #colorTransferFunction.AddRGBPoint(128.0, .5, .5, .5)
+            #colorTransferFunction.AddRGBPoint(192.0, 0.75, .75, .75)
+            colorTransferFunction.AddRGBPoint(255.0, 1, 1, 1)
+
+            # The property describes how the data will look
+            volumeProperty = vtk.vtkVolumeProperty()
+            volumeProperty.SetColor(colorTransferFunction)
+            volumeProperty.SetScalarOpacity(opacityTransferFunction)
+            volumeProperty.ShadeOn()
+            volumeProperty.SetInterpolationTypeToLinear()
+
+            # The mapper / ray cast function know how to render the data
+            volumeMapper = vtk.vtkFixedPointVolumeRayCastMapper()
+            volumeMapper.SetInputConnection(dataImporter.GetOutputPort())
+             
+            # The class vtkVolume is used to pair the preaviusly declared volume as well as the properties to be used when rendering that volume.
+            volume = vtk.vtkVolume()
+            volume.SetMapper(volumeMapper)
+            volume.SetProperty(volumeProperty)
+            # The volume holds the mapper and the property and
+            # can be used to position/orient the volume
+            volume = vtk.vtkVolume()
+            volume.SetMapper(volumeMapper)
+            volume.SetProperty(volumeProperty)
+
+            ren.AddVolume(volume)
 
         X = self.X - 1
         Y = self.Y - 1
@@ -233,16 +292,15 @@ class Spang:
 
         # Add invisible actors to set FOV
         NN = np.max([X, Y, Z])
-        ren.add(actor.line([np.array([[0,0,0],[NN,0,0]])], colors=np.array([1,1,1]), linewidth=1))
-        ren.add(actor.line([np.array([[0,0,0],[0,NN,0]])], colors=np.array([1,1,1]), linewidth=1))
-        ren.add(actor.line([np.array([[0,0,0],[0,0,NN]])], colors=np.array([1,1,1]), linewidth=1))
+        ren.add(actor.line([np.array([[0,0,0],[NN,0,0]])], colors=line_bcolor, linewidth=1))
+        ren.add(actor.line([np.array([[0,0,0],[0,NN,0]])], colors=line_bcolor, linewidth=1))
+        ren.add(actor.line([np.array([[0,0,0],[0,0,NN]])], colors=line_bcolor, linewidth=1))
         if outer_box:
-            c = np.array([0,0,0])
             ren.add(actor.line([np.array([[0,0,0],[X,0,0],[X,Y,0],[0,Y,0],
                                           [0,0,0],[0,Y,0],[0,Y,Z],[0,0,Z],
-                                          [0,0,0],[X,0,0],[X,0,Z],[0,0,Z]])], colors=c))
+                                          [0,0,0],[X,0,0],[X,0,Z],[0,0,Z]])], colors=line_color))
             ren.add(actor.line([np.array([[X,0,Z],[X,Y,Z],[X,Y,0],[X,Y,Z],
-                                          [0,Y,Z]])], colors=c))
+                                          [0,Y,Z]])], colors=line_color))
         # Add colored axes
         if axes:
             ren.add(actor.line([np.array([[0,0,0],[NN/10,0,0]])], colors=np.array([1,0,0]), linewidth=4))
@@ -257,22 +315,33 @@ class Spang:
         renWin.SetSize(size[0], size[1])
         iren = vtk.vtkRenderWindowInteractor()
         iren.SetRenderWindow(renWin)
-        ren.ResetCamera()
+        if my_cam is None:
+            ren.ResetCamera()
+            my_cam = ren.get_camera()
+        else:
+            ren.set_camera(*my_cam)
         ren.azimuth(azimuth)
         ren.elevation(elevation)
         
-        writer = vtk.vtkPNGWriter()
+        if tiff:
+            writer = vtk.vtkTIFFWriter()
+            writer.SetCompressionToNoCompression()
+            suffix = '.tif'
+        else:
+            writer = vtk.vtkPNGWriter()
+            suffix = '.png'
+        
         az = 0
         naz = np.ceil(360/n_frames)
-        
+                
         log.info('Rendering ' + out_path)
         if save_parallels:
             filenames = ['yz', 'xy', 'xz']
             zooms = [zoom, 1.0, 1.0]
             azs = [90, -90, 0]
             els = [0, 0, 90]
+            ren.projection(proj_type='parallel')
             for i in tqdm(range(3)):
-                ren.projection(proj_type='parallel')
                 ren.zoom(zooms[i])
                 ren.azimuth(azs[i])
                 ren.elevation(els[i])
@@ -282,7 +351,7 @@ class Spang:
                 renderLarge.SetInput(ren)
                 renderLarge.Update()
                 writer.SetInputConnection(renderLarge.GetOutputPort())
-                writer.SetFileName(out_path + filenames[i] + '.png')
+                writer.SetFileName(out_path + filenames[i] + suffix)
                 writer.Write()
         else:
             ren.zoom(zoom)
@@ -295,7 +364,7 @@ class Spang:
                 renderLarge.SetInput(ren)
                 renderLarge.Update()
                 writer.SetInputConnection(renderLarge.GetOutputPort())
-                writer.SetFileName(out_path + str(i).zfill(6) + '.png')
+                writer.SetFileName(out_path + str(i).zfill(3) + suffix)
                 writer.Write()
                 az = naz
 
@@ -308,8 +377,10 @@ class Spang:
             fps = np.ceil(n_frames/12)
             subprocess.call(['ffmpeg', '-nostdin', '-y', '-framerate', str(fps),
                              '-loglevel', 'panic',
-                             '-i', out_path+'%06d.png', out_path[:-1]+'.avi'])
-            subprocess.call(['rm', '-r', out_path])
+                             '-i', out_path+'%03d'+suffix, out_path[:-1]+'.avi'])
+            #subprocess.call(['rm', '-r', out_path])
+
+        return my_cam
 
     def save_mips(self, filename='spang_mips.pdf'):
         log.info('Writing '+filename)
@@ -330,8 +401,12 @@ class Spang:
                 tif.save(d[None,:,None,:,:].astype(np.float32)) # TZCYXS
                 
     def read_tiff(self, filename):
+        log.info('Reading '+filename)
         with tifffile.TiffFile(filename) as tf:
             self.f = np.moveaxis(tf.asarray(), [0, 1, 2, 3], [2, 3, 1, 0])
+        self.X = self.f.shape[0]
+        self.Y = self.f.shape[1]
+        self.Z = self.f.shape[2]
 
     def save_stats(self, folder='./', save_sh=False):
         if not os.path.exists(folder):

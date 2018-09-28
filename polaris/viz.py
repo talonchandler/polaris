@@ -3,7 +3,7 @@ from polaris import util
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib import rc
-rc('text', usetex=True)
+#rc('text', usetex=True)
 import numpy as np
 import vtk
 import os
@@ -431,7 +431,7 @@ def tensor_slicer_sparse(odfsh, affine=None, mask=None, sphere=None, scale=2.2,
                                                 mask=tmp_mask,
                                                 sphere=sphere,
                                                 scale=scale,
-                                                norm=False,
+                                                norm=True,
                                                 opacity=opacity,
                                                 scalar_colors=scalar_colors)
             self.SetMapper(self.mapper)
@@ -470,7 +470,8 @@ def _tensor_slicer_mapper(odfsh, affine=None, mask=None, sphere=None, scale=2.2,
     masked_sh = odfsh[ijk[:,0], ijk[:,1], ijk[:,2]] # Assemble masked sh
 
     # Normalize
-    masked_sh = masked_sh/np.max(masked_sh[:,0])
+    if norm:
+        masked_sh = masked_sh/np.max(masked_sh[:,0])
     
     # Calculate evals, evecs, principal
     M = np.load(os.path.join(os.path.dirname(__file__), 'harmonics/sh2tensor.npy'))

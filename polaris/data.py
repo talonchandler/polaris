@@ -112,28 +112,49 @@ class Data:
                     with tifffile.TiffWriter(filename, imagej=True) as tw:
                         tw.save(data[None,:,None,:,:,None]) # TZCYXS
         else:
+            if not os.path.exists(folder):
+                    os.makedirs(folder)
             filename = folder + 'data.tif'
             data = np.moveaxis(self.g, [4, 2, 3], [0, 1, 2])
             with tifffile.TiffWriter(filename, imagej=True) as tw:
                 tw.save(data[:,:,:,:,:,None]) # TZCYXS
 
-    def read_tiff(self, folder, roi=None, order=None):
+    def read_tiff(self, folder, roi=None, order=None, diSPIM_format=True, filenum=0):
         log.info('ROI: ' + str(roi))
         for i, view in enumerate(['SPIMA', 'SPIMB']):
-            for j in range(4):
-                filename = folder + view + '/' + view + '_reg_' + str(j) + '.tif'
+            if diSPIM_format:
+                for j in range(4):
+                    filename = folder + view + '/' + view + '_reg_' + str(j) + '.tif'
+                    with tifffile.TiffFile(filename) as tf:
+                        log.info('Reading '+filename)
+                        data = tf.asarray() # ZYX order
+                        if roi is not None: # Crop
+                            data = data[roi[2][0]:roi[2][1], roi[1][0]:roi[1][1], roi[0][0]:roi[0][1]]
+                        if self.g.shape[0] != data.shape[2]: # Make g with correct shape
+                            datashape = (data.shape[2], data.shape[1], data.shape[0], self.pols.shape[1], self.pols.shape[0])
+                            self.g = np.zeros(datashape, dtype=np.float32)
+                        if data.dtype == np.uint16: # Convert 
+                            data = (data/np.iinfo(np.uint16).max).astype(np.float32)
+                        if order is not None:
+                            jj = order[i][j]
+                        else:
+                            jj = j
+                        self.g[...,jj,i] = np.swapaxes(data, 0, 2) # XYZPV order
+            else:
+                filename = folder + view + '/' + view + '_reg_' + str(filenum) + '.tif'
                 with tifffile.TiffFile(filename) as tf:
                     log.info('Reading '+filename)
-                    data = tf.asarray() # ZYX order
+                    data = tf.asarray() # ZPYX order
                     if roi is not None: # Crop
-                        data = data[roi[2][0]:roi[2][1], roi[1][0]:roi[1][1], roi[0][0]:roi[0][1]]
-                    if self.g.shape[0] != data.shape[2]: # Make g with correct shape
-                        datashape = (data.shape[2], data.shape[1], data.shape[0], self.pols.shape[1], self.pols.shape[0])
+                        data = data[roi[2][0]:roi[2][1], :, roi[1][0]:roi[1][1], roi[0][0]:roi[0][1]]
+                    if self.g.shape[0] != data.shape[3]: # Make g with correct shape
+                        datashape = (data.shape[3], data.shape[2], data.shape[0], self.pols.shape[1], self.pols.shape[0])
                         self.g = np.zeros(datashape, dtype=np.float32)
                     if data.dtype == np.uint16: # Convert 
                         data = (data/np.iinfo(np.uint16).max).astype(np.float32)
-                    if order is not None:
-                        jj = order[i][j]
-                    else:
-                        jj = j
-                    self.g[...,jj,i] = np.swapaxes(data, 0, 2) # XYZPV order
+                    for j in range(4):
+                        if order is not None:
+                            jj = order[i][j]
+                        else:
+                            jj = j
+                        self.g[...,jj,i] = np.swapaxes(data[:,j,:,:], 0, 2) # XYZPV order
