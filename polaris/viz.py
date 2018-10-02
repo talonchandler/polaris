@@ -129,9 +129,9 @@ def plot5d(filename, data, row_labels=None, col_labels=None, yscale_label=None,
     spec = gridspec.GridSpec(ncols=cols, nrows=rows, width_ratios=widths,
                              height_ratios=heights, hspace=0.075, wspace=0.075)
     for row in range(rows):
+        print('Plotting 5D row ' + str(row))
         for col in range(cols):
             if col != cols - 1:
-                print('Plotting row ' + str(row) + ' column ' + str(col))
                 plot_parallels(data[:,:,:,col,row], out_path='parallels/', outer_box=False,
                                    axes=False, clip_neg=False, azimuth=0,
                                    elevation=0)
@@ -544,3 +544,80 @@ def _makeNd(array, ndim):
     array ndim dimensions."""
     new_shape = (1,) * (ndim - array.ndim) + array.shape
     return array.reshape(new_shape)
+
+def density_slicer(density):
+
+    # Set opacity
+    vol = np.interp(np.swapaxes(density, 0, 2), [density.min(), density.max()], [0, 255])
+    vol = vol.astype('uint8')
+
+    X, Y, Z = density.shape
+    
+    dataImporter = vtk.vtkImageImport()
+    data_string = vol.tostring()
+    dataImporter.CopyImportVoidPointer(data_string, len(data_string))
+    dataImporter.SetDataScalarTypeToUnsignedChar()
+    dataImporter.SetNumberOfScalarComponents(1)
+    dataImporter.SetDataExtent(0, Z - 1, 0, Y - 1, 0, X - 1)
+    dataImporter.SetWholeExtent(0, Z - 1, 0, Y - 1, 0, X - 1)
+
+    # Create transfer mapping scalar value to opacity
+    opacityTransferFunction = vtk.vtkPiecewiseFunction()
+    opacityTransferFunction.AddPoint(0, 0)
+    opacityTransferFunction.AddPoint(255, 1.0)
+
+    # Create transfer mapping scalar value to color
+    colorTransferFunction = vtk.vtkColorTransferFunction()
+    colorTransferFunction.AddRGBPoint(0.0, 0.0, 0.0, 0.0)
+    colorTransferFunction.AddRGBPoint(255.0, 1, 1, 1)
+
+    # The property describes how the data will look
+    volumeProperty = vtk.vtkVolumeProperty()
+    volumeProperty.SetColor(colorTransferFunction)
+    volumeProperty.SetScalarOpacity(opacityTransferFunction)
+    # volumeProperty.ShadeOn()
+    # volumeProperty.SetInterpolationTypeToLinear()
+
+    # The mapper / ray cast function know how to render the data
+    volumeMapper = vtk.vtkGPUVolumeRayCastMapper()
+    volumeMapper.SetBlendModeToMaximumIntensity()
+    volumeMapper.SetInputConnection(dataImporter.GetOutputPort())
+
+    # The class vtkVolume is used to pair the preaviusly declared volume as well as the properties to be used when rendering that volume.
+    volume = vtk.vtkVolume()
+    volume.SetMapper(volumeMapper)
+    volume.SetProperty(volumeProperty)
+    # The volume holds the mapper and the property and
+    # can be used to position/orient the volume
+    volume = vtk.vtkVolume()
+    volume.SetMapper(volumeMapper)
+    volume.SetProperty(volumeProperty)
+    return volume
+
+def draw_unlit_line(ren, coords, colors, lw=0.5, streamtube=True):
+    if streamtube:
+        act = actor.streamtube(coords, colors=colors, linewidth=lw)
+    else:
+        act = actor.line(coords, colors=colors, linewidth=lw)
+    act.GetProperty().SetLighting(0)
+    ren.add(act)
+
+def draw_outer_box(ren, X, Y, Z, line_color):
+    draw_unlit_line(ren, [np.array([[0,0,0],[X,0,0]])], line_color, lw=0.3)
+    draw_unlit_line(ren, [np.array([[0,0,0],[0,Y,0]])], line_color, lw=0.3)
+    draw_unlit_line(ren, [np.array([[0,0,0],[0,0,Z]])], line_color, lw=0.3)            
+    draw_unlit_line(ren, [np.array([[X,Y,Z],[X,Y,0]])], line_color, lw=0.3)
+    draw_unlit_line(ren, [np.array([[X,Y,Z],[0,Y,Z]])], line_color, lw=0.3)
+    draw_unlit_line(ren, [np.array([[X,Y,Z],[X,0,Z]])], line_color, lw=0.3)
+    draw_unlit_line(ren, [np.array([[X,0,0],[X,Y,0]])], line_color, lw=0.3)
+    draw_unlit_line(ren, [np.array([[X,0,0],[X,0,Z]])], line_color, lw=0.3)
+    draw_unlit_line(ren, [np.array([[0,Y,0],[X,Y,0]])], line_color, lw=0.3)
+    draw_unlit_line(ren, [np.array([[0,Y,0],[0,Y,Z]])], line_color, lw=0.3)
+    draw_unlit_line(ren, [np.array([[0,0,Z],[X,0,Z]])], line_color, lw=0.3)
+    draw_unlit_line(ren, [np.array([[0,0,Z],[0,Y,Z]])], line_color, lw=0.3)
+
+def draw_axes(ren, X, Y, Z):
+    Nmin = np.min([X, Y, Z])
+    draw_unlit_line(ren, [np.array([[0,0,0],[Nmin/5,0,0]])], np.array([1,0,0]))
+    draw_unlit_line(ren, [np.array([[0,0,0],[0,Nmin/5,0]])], np.array([0,1,0]))
+    draw_unlit_line(ren, [np.array([[0,0,0],[0,0,Nmin/5]])], np.array([0,0,1]))

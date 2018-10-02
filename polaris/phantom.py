@@ -7,7 +7,7 @@ log = logging.getLogger('log')
 
 def three_helix(vox_dim=(130,130,130), px=(64,64,64)):
     phant = spang.Spang(np.zeros(px + (15,), dtype=np.float32), vox_dim=vox_dim)
-    s = px[0]//3
+    s = 20
     phant1 = helix_phantom(px=(s,s,s), radius=600, pitch=1000, cyl_rad=250,
                           vox_dim=vox_dim, max_l=4, center=(0,0,0),
                           normal=0, trange=(-2*np.pi, 2*np.pi))

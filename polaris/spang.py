@@ -111,7 +111,7 @@ class Spang:
                         bar = True
                         bar_label = 'ODF radius' + skip_label + filter_label
                         colormap = 'Reds'
-                        self.visualize(out_path='parallels/', zoom=1.7,
+                        self.visualize(out_path='parallels/', zoom_start=1.7,
                                        outer_box=False, axes=False,
                                        clip_neg=False, azimuth=0, elevation=0,
                                        n_frames=1, mag=mag, video=False, scale=scale,
@@ -120,7 +120,7 @@ class Spang:
                     if row == 1 and col == 1:
                         bar = False
                         bar_label = 'Principal' + skip_label + filter_label
-                        self.visualize(out_path='parallels/', zoom=1.7,
+                        self.visualize(out_path='parallels/', zoom_start=1.7,
                                        outer_box=False, axes=False,
                                        clip_neg=False, azimuth=0, elevation=0,
                                        n_frames=1, mag=mag, video=False, scale=scale,
@@ -131,7 +131,7 @@ class Spang:
                         bar_label = 'Principal' + skip_label + filter_label
                         self.yscale = 1e-3*self.vox_dim[1]*self.f.shape[0]
                         yscale_label = '{:.2f}'.format(self.yscale) + ' $\mu$m'
-                        self.visualize(out_path='parallels/', zoom=1.7,
+                        self.visualize(out_path='parallels/', zoom_start=1.7,
                                        outer_box=False, axes=False,
                                        clip_neg=False, azimuth=0, elevation=0,
                                        n_frames=1, mag=mag, video=False, scale=scale,
@@ -140,7 +140,7 @@ class Spang:
                     if row == 1 and col == 0:
                         bar = False
                         bar_label = 'Peak' + skip_label + filter_label
-                        self.visualize(out_path='parallels/', zoom=1.7,
+                        self.visualize(out_path='parallels/', zoom_start=1.7,
                                        outer_box=False, axes=False,
                                        clip_neg=False, azimuth=0, elevation=0,
                                        n_frames=1, mag=mag, video=False, scale=scale,
@@ -180,13 +180,14 @@ class Spang:
     def visualize(self, out_path='out/', outer_box=True, axes=True,
                   clip_neg=False, azimuth=0, elevation=0, n_frames=1,
                   size=(600,600), mag=4, video=False, viz_type='ODF', mask=None,
-                  skip_n=1, scale=1, zoom=1.0, zoom_in=1.0, interact=False,
-                  save_parallels=False, gfa_filter=0, my_cam=None, tiff=False):
+                  skip_n=1, scale=1, zoom_start=1.7, zoom_end=1.7,
+                  interact=False, save_parallels=False, gfa_filter=0,
+                  my_cam=None, tiff=False):
         log.info('Preparing to render ' + out_path)
         
         # Prepare output
-        #if not os.path.exists(out_path):
-        #    os.makedirs(out_path)
+        if not os.path.exists(out_path):
+           os.makedirs(out_path)
             
         # Mask
         if mask is None:
@@ -195,134 +196,104 @@ class Spang:
         skip_mask[::skip_n,::skip_n,::skip_n] = 1
         mask = np.logical_and(mask, skip_mask)
 
-        # Render
-        ren = window.Renderer()
-        ren.background([1,1,1])
-        line_color = np.array([0,0,0])
-        line_bcolor = np.array([1,1,1])
-        
-        # Add visuals to renderer
-        if viz_type == "ODF":
-            log.info('Rendering '+str(np.sum(mask) - 8)+' ODFs')
-            fodf_spheres = viz.odf_sparse(self.f, self.Binv, sphere=self.sphere,
-                                          scale=skip_n*scale*0.5, norm=False,
-                                          colormap='bwr', mask=mask,
-                                          global_cm=True)
-            ren.add(fodf_spheres)
-        elif viz_type == "ELLIPSOID":
-            log.info('Rendering '+str(np.sum(mask) - 8)+' ellipsoids')
-            fodf_peaks = viz.tensor_slicer_sparse(self.f,
-                                                  sphere=self.sphere,
-                                                  scale=skip_n*scale*0.5,
-                                                  mask=mask)
-            ren.add(fodf_peaks)
-        elif viz_type == "PEAK":
-            log.info('Rendering '+str(np.sum(mask) - 8)+' peaks')
-            fodf_peaks = viz.peak_slicer_sparse(self.f, self.Binv, self.sphere.vertices, 
-                                                scale=skip_n*scale*0.5,
-                                                mask=mask)
-            ren.add(fodf_peaks)
-        elif viz_type == "PRINCIPAL":
-            log.info('Rendering '+str(np.sum(mask) - 8)+' principals')
-            fodf_peaks = viz.principal_slicer_sparse(self.f, self.Binv, self.sphere.vertices, 
-                                                     scale=skip_n*scale*0.5,
-                                                     mask=mask)
-            ren.add(fodf_peaks)
-        elif viz_type == "VOLUME":
-            log.info('Rendering volume')
-            ren.background([1,1,1])
-            line_color = np.array([1,1,0])
-            line_bcolor = np.array([0,0,0])
-
-            # Set opacity
-            vol = np.interp(self.f[...,0], [self.f[...,0].min(), self.f[...,0].max()], [0, 255])
-            vol = vol.astype('uint8')
-
-            vol = np.zeros_like(vol)
-            vol[0:10,0:10,0:10] = 255
-            import pdb; pdb.set_trace()
-            
-            dataImporter = vtk.vtkImageImport()
-            data_string = vol.tostring()
-            dataImporter.CopyImportVoidPointer(data_string, len(data_string))
-            dataImporter.SetDataScalarTypeToUnsignedChar()
-            dataImporter.SetNumberOfScalarComponents(1)
-            dataImporter.SetDataExtent(0, self.X - 1, 0, self.Y - 1, 0, self.Z - 1)
-            dataImporter.SetWholeExtent(0, self.X - 1, 0, self.Y - 1, 0, self.Z - 1)
-
-            # Create transfer mapping scalar value to opacity
-            opacityTransferFunction = vtk.vtkPiecewiseFunction()
-            opacityTransferFunction.AddPoint(0, 0)
-            opacityTransferFunction.AddPoint(255, 1.0)
-
-            # Create transfer mapping scalar value to color
-            colorTransferFunction = vtk.vtkColorTransferFunction()
-            colorTransferFunction.AddRGBPoint(0.0, 0.0, 0.0, 0.0)
-            #colorTransferFunction.AddRGBPoint(64.0, 0.25, 0.25, 0.25)
-            #colorTransferFunction.AddRGBPoint(128.0, .5, .5, .5)
-            #colorTransferFunction.AddRGBPoint(192.0, 0.75, .75, .75)
-            colorTransferFunction.AddRGBPoint(255.0, 1, 1, 1)
-
-            # The property describes how the data will look
-            volumeProperty = vtk.vtkVolumeProperty()
-            volumeProperty.SetColor(colorTransferFunction)
-            volumeProperty.SetScalarOpacity(opacityTransferFunction)
-            volumeProperty.ShadeOn()
-            volumeProperty.SetInterpolationTypeToLinear()
-
-            # The mapper / ray cast function know how to render the data
-            volumeMapper = vtk.vtkFixedPointVolumeRayCastMapper()
-            volumeMapper.SetInputConnection(dataImporter.GetOutputPort())
-             
-            # The class vtkVolume is used to pair the preaviusly declared volume as well as the properties to be used when rendering that volume.
-            volume = vtk.vtkVolume()
-            volume.SetMapper(volumeMapper)
-            volume.SetProperty(volumeProperty)
-            # The volume holds the mapper and the property and
-            # can be used to position/orient the volume
-            volume = vtk.vtkVolume()
-            volume.SetMapper(volumeMapper)
-            volume.SetProperty(volumeProperty)
-
-            ren.AddVolume(volume)
-
-        X = self.X - 1
-        Y = self.Y - 1
-        Z = self.Z - 1
-
-        # Add invisible actors to set FOV
-        NN = np.max([X, Y, Z])
-        ren.add(actor.line([np.array([[0,0,0],[NN,0,0]])], colors=line_bcolor, linewidth=1))
-        ren.add(actor.line([np.array([[0,0,0],[0,NN,0]])], colors=line_bcolor, linewidth=1))
-        ren.add(actor.line([np.array([[0,0,0],[0,0,NN]])], colors=line_bcolor, linewidth=1))
-        if outer_box:
-            ren.add(actor.line([np.array([[0,0,0],[X,0,0],[X,Y,0],[0,Y,0],
-                                          [0,0,0],[0,Y,0],[0,Y,Z],[0,0,Z],
-                                          [0,0,0],[X,0,0],[X,0,Z],[0,0,Z]])], colors=line_color))
-            ren.add(actor.line([np.array([[X,0,Z],[X,Y,Z],[X,Y,0],[X,Y,Z],
-                                          [0,Y,Z]])], colors=line_color))
-        # Add colored axes
-        if axes:
-            ren.add(actor.line([np.array([[0,0,0],[NN/10,0,0]])], colors=np.array([1,0,0]), linewidth=4))
-            ren.add(actor.line([np.array([[0,0,0],[0,NN/10,0]])], colors=np.array([0,1,0]), linewidth=4))
-            ren.add(actor.line([np.array([[0,0,0],[0,0,NN/10]])], colors=np.array([0,0,1]), linewidth=4))
-
         # Setup vtk renderers
         renWin = vtk.vtkRenderWindow()
         if not interact:
             renWin.SetOffScreenRendering(1)
-        renWin.AddRenderer(ren)
-        renWin.SetSize(size[0], size[1])
-        iren = vtk.vtkRenderWindowInteractor()
-        iren.SetRenderWindow(renWin)
-        if my_cam is None:
-            ren.ResetCamera()
-            my_cam = ren.get_camera()
+        if isinstance(viz_type, str):
+            viz_type = [viz_type]
+        renWin.SetSize(500*mag*len(viz_type), 500*mag)
+
+        # Select background color
+        if save_parallels:
+            bg_color = [1,1,1]
+            line_color = np.array([0,0,0])
+            line_bcolor = np.array([1,1,1])
         else:
-            ren.set_camera(*my_cam)
-        ren.azimuth(azimuth)
-        ren.elevation(elevation)
+            bg_color = [0,0,0]
+            line_color = np.array([1,1,1])
+            line_bcolor = np.array([0,0,0])
+            
+        # For each viz_type
+        rens = []
+        for i, vizt in enumerate(viz_type):
+            # Render
+            ren = window.Renderer()
+            rens.append(ren)
+            ren.background(bg_color)
+            ren.SetViewport(i/len(viz_type),0,(i+1)/len(viz_type),1)
+            renWin.AddRenderer(ren)
         
+            # Add visuals to renderer
+            if vizt == "ODF":
+                log.info('Rendering '+str(np.sum(mask) - 8) + ' ODFs')
+                fodf_spheres = viz.odf_sparse(self.f, self.Binv, sphere=self.sphere,
+                                              scale=skip_n*scale*0.5, norm=False,
+                                              colormap='bwr', mask=mask,
+                                              global_cm=True)
+                ren.add(fodf_spheres)
+            elif vizt == "ELLIPSOID":
+                log.info('Rendering '+str(np.sum(mask) - 8) + ' ellipsoids')
+                fodf_peaks = viz.tensor_slicer_sparse(self.f,
+                                                      sphere=self.sphere,
+                                                      scale=skip_n*scale*0.5,
+                                                      mask=mask)
+                ren.add(fodf_peaks)
+            elif vizt == "PEAK":
+                log.info('Rendering '+str(np.sum(mask) - 8) + ' peaks')
+                fodf_peaks = viz.peak_slicer_sparse(self.f, self.Binv, self.sphere.vertices, 
+                                                    scale=skip_n*scale*0.5,
+                                                    mask=mask)
+                ren.add(fodf_peaks)
+            elif vizt == "PRINCIPAL":
+                log.info('Rendering '+str(np.sum(mask) - 8) + ' principals')
+                fodf_peaks = viz.principal_slicer_sparse(self.f, self.Binv, self.sphere.vertices, 
+                                                         scale=skip_n*scale*0.5,
+                                                         mask=mask)
+                ren.add(fodf_peaks)
+            elif vizt == "DENSITY":
+                log.info('Rendering density')
+                volume = viz.density_slicer(self.f[...,0])
+                ren.AddVolume(volume)
+
+            X = np.float(self.X - 1)
+            Y = np.float(self.Y - 1)
+            Z = np.float(self.Z - 1)
+
+            # Draw boxes
+            Nmax = np.max([X, Y, Z])
+            if outer_box:
+                viz.draw_outer_box(ren, X, Y, Z, line_color)
+            else:
+                ren.add(actor.line([np.array([[0,0,0],[Nmax,0,0]])], colors=line_bcolor, linewidth=1))
+                ren.add(actor.line([np.array([[0,0,0],[0,Nmax,0]])], colors=line_bcolor, linewidth=1))
+                ren.add(actor.line([np.array([[0,0,0],[0,0,Nmax]])], colors=line_bcolor, linewidth=1))
+
+            # Add colored axes
+            if axes:
+                viz.draw_axes(ren, X, Y, Z)
+
+            # Setup cameras
+            Rmax = np.linalg.norm([self.Z/2, self.X/2, self.Y/2])
+            Rcam_rad = Rmax/np.tan(np.pi/12)        
+            Ntmax = np.max([self.X, self.Y])
+            ZZ = self.Z
+            if ZZ > Ntmax:
+                Rcam_edge = np.max([self.X/2, self.Y/2])
+            else:
+                Rcam_edge = np.min([self.X/2, self.Y/2])
+            Rcam = Rcam_edge + Rcam_rad
+            if my_cam is None:
+                cam = ren.GetActiveCamera()
+                cam.SetPosition((X//2 + Rcam, Y//2, Z//2))
+                cam.SetViewUp((0, 0, 1))
+                cam.SetFocalPoint((X//2, Y//2, Z//2))
+            else:
+                ren.set_camera(*my_cam)
+            ren.azimuth(azimuth)
+            ren.elevation(elevation)
+
+        # Setup writer
         if tiff:
             writer = vtk.vtkTIFFWriter()
             writer.SetCompressionToNoCompression()
@@ -330,37 +301,41 @@ class Spang:
         else:
             writer = vtk.vtkPNGWriter()
             suffix = '.png'
-        
+
+        # Execute renders
         az = 0
         naz = np.ceil(360/n_frames)
-                
         log.info('Rendering ' + out_path)
         if save_parallels:
+            # Parallel rendering for summaries
             filenames = ['yz', 'xy', 'xz']
-            zooms = [zoom, 1.0, 1.0]
+            zooms = [zoom_start, 1.0, 1.0]
             azs = [90, -90, 0]
             els = [0, 0, 90]
             ren.projection(proj_type='parallel')
+            ren.reset_camera()
             for i in tqdm(range(3)):
                 ren.zoom(zooms[i])
                 ren.azimuth(azs[i])
                 ren.elevation(els[i])
                 ren.reset_clipping_range()
                 renderLarge = vtk.vtkRenderLargeImage()
-                renderLarge.SetMagnification(mag)
+                renderLarge.SetMagnification(1)
                 renderLarge.SetInput(ren)
                 renderLarge.Update()
                 writer.SetInputConnection(renderLarge.GetOutputPort())
                 writer.SetFileName(out_path + filenames[i] + suffix)
                 writer.Write()
         else:
-            ren.zoom(zoom)
+            # Rendering for movies 
+            for ren in rens:
+                ren.zoom(zoom_start)
             for i in tqdm(range(n_frames)):
-                ren.zoom(1 + ((zoom_in - zoom)/n_frames))
-                ren.azimuth(az)
-                ren.reset_clipping_range()
+                for ren in rens:
+                    ren.zoom(1 + ((zoom_end - zoom_start)/n_frames))
+                    ren.azimuth(az)
                 renderLarge = vtk.vtkRenderLargeImage()
-                renderLarge.SetMagnification(mag)
+                renderLarge.SetMagnification(1)
                 renderLarge.SetInput(ren)
                 renderLarge.Update()
                 writer.SetInputConnection(renderLarge.GetOutputPort())
@@ -368,9 +343,10 @@ class Spang:
                 writer.Write()
                 az = naz
 
+        # Interactive
         if interact:
             window.show(ren)
-                
+
         # Generate video (requires ffmpeg)
         if video:
             log.info('Generating video from frames')
@@ -378,7 +354,7 @@ class Spang:
             subprocess.call(['ffmpeg', '-nostdin', '-y', '-framerate', str(fps),
                              '-loglevel', 'panic',
                              '-i', out_path+'%03d'+suffix, out_path[:-1]+'.avi'])
-            #subprocess.call(['rm', '-r', out_path])
+            # subprocess.call(['rm', '-r', out_path])
 
         return my_cam
 
