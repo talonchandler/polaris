@@ -431,7 +431,7 @@ def tensor_slicer_sparse(odfsh, affine=None, mask=None, sphere=None, scale=2.2,
                                                 mask=tmp_mask,
                                                 sphere=sphere,
                                                 scale=scale,
-                                                norm=True,
+                                                norm=False,
                                                 opacity=opacity,
                                                 scalar_colors=scalar_colors)
             self.SetMapper(self.mapper)
@@ -451,7 +451,7 @@ def tensor_slicer_sparse(odfsh, affine=None, mask=None, sphere=None, scale=2.2,
     return tensor_actor
 
 def _tensor_slicer_mapper(odfsh, affine=None, mask=None, sphere=None, scale=2.2,
-                          norm=True, opacity=1., scalar_colors=None):
+                          norm=False, opacity=1., scalar_colors=None):
 
     if mask is None:
         mask = np.ones(evals.shape[:3])
@@ -482,7 +482,7 @@ def _tensor_slicer_mapper(odfsh, affine=None, mask=None, sphere=None, scale=2.2,
     D[...,2,0] = Di[...,5]; D[...,2,1] = Di[...,4]; D[...,2,2] = Di[...,2];
     evals2, evecs2 = np.linalg.eigh(D)
     pr2 = evecs2[...,-1]
-    
+
     # Calculate vertices
     masked_radii = np.einsum('ij,kj->kij', evals2, vertices) # Scale
     masked_radii2 = np.einsum('ijk,lik->lij', evecs2, masked_radii) # Rotate
@@ -596,11 +596,11 @@ def density_slicer(density):
 
 def draw_unlit_line(ren, coords, colors, lw=0.5, streamtube=True):
     if streamtube:
-        act = actor.streamtube(coords, colors=colors, linewidth=lw)
+        act = actor.streamtube(coords, colors=colors, linewidth=lw, lod=False)
     else:
         act = actor.line(coords, colors=colors, linewidth=lw)
     act.GetProperty().SetLighting(0)
-    ren.add(act)
+    ren.AddActor(act)
 
 def draw_outer_box(ren, X, Y, Z, line_color):
     draw_unlit_line(ren, [np.array([[0,0,0],[X,0,0]])], line_color, lw=0.3)
@@ -616,6 +616,11 @@ def draw_outer_box(ren, X, Y, Z, line_color):
     draw_unlit_line(ren, [np.array([[0,0,Z],[X,0,Z]])], line_color, lw=0.3)
     draw_unlit_line(ren, [np.array([[0,0,Z],[0,Y,Z]])], line_color, lw=0.3)
 
+def draw_scale_bar(ren, X, Y, Z, line_color):
+    draw_unlit_line(ren, [np.array([[X,0,-Z//40],[X,Y,-Z//40]])], line_color, lw=0.3)
+    draw_unlit_line(ren, [np.array([[X,Y,-Z//40 + Z//60],[X,Y,-Z//40 - Z//60]])], line_color, lw=0.3)
+    draw_unlit_line(ren, [np.array([[X,0,-Z//40 + Z//60],[X,0,-Z//40 - Z//60]])], line_color, lw=0.3)
+    
 def draw_axes(ren, X, Y, Z):
     Nmin = np.min([X, Y, Z])
     draw_unlit_line(ren, [np.array([[0,0,0],[Nmin/5,0,0]])], np.array([1,0,0]))

@@ -124,7 +124,7 @@ class Spang:
                                        outer_box=False, axes=False,
                                        clip_neg=False, azimuth=0, elevation=0,
                                        n_frames=1, mag=mag, video=False, scale=scale,
-                                       interact=False, viz_type='ELLIPSOID',
+                                       interact=False, viz_type='Ellipsoid',
                                        save_parallels=True, mask=mask, skip_n=skip_n)
                     if row == 1 and col == 2:
                         bar = False
@@ -135,7 +135,7 @@ class Spang:
                                        outer_box=False, axes=False,
                                        clip_neg=False, azimuth=0, elevation=0,
                                        n_frames=1, mag=mag, video=False, scale=scale,
-                                       interact=False, viz_type='PRINCIPAL',
+                                       interact=False, viz_type='Principal',
                                        save_parallels=True, mask=mask, skip_n=skip_n)
                     if row == 1 and col == 0:
                         bar = False
@@ -144,7 +144,7 @@ class Spang:
                                        outer_box=False, axes=False,
                                        clip_neg=False, azimuth=0, elevation=0,
                                        n_frames=1, mag=mag, video=False, scale=scale,
-                                       interact=False, viz_type='PEAK',
+                                       interact=False, viz_type='Peak',
                                        save_parallels=True, mask=mask, skip_n=skip_n)
                     if row == 0 and col == 1:
                         colormap = 'gray'
@@ -174,13 +174,12 @@ class Spang:
                     viz.plot_colorbar(f, spec, row, col, vmin, vmax, colormap)
 
         log.info('Saving ' + filename)
-        # plt.subplots_adjust(bottom=0.3)
         f.savefig(filename, bbox_inches='tight')
         
     def visualize(self, out_path='out/', outer_box=True, axes=True,
                   clip_neg=False, azimuth=0, elevation=0, n_frames=1,
                   size=(600,600), mag=4, video=False, viz_type='ODF', mask=None,
-                  skip_n=1, scale=1, zoom_start=1.7, zoom_end=1.7,
+                  skip_n=1, scale=1, zoom_start=None, zoom_end=None,
                   interact=False, save_parallels=False, gfa_filter=0,
                   my_cam=None, tiff=False):
         log.info('Preparing to render ' + out_path)
@@ -213,7 +212,7 @@ class Spang:
             bg_color = [0,0,0]
             line_color = np.array([1,1,1])
             line_bcolor = np.array([0,0,0])
-            
+
         # For each viz_type
         rens = []
         for i, vizt in enumerate(viz_type):
@@ -223,7 +222,9 @@ class Spang:
             ren.background(bg_color)
             ren.SetViewport(i/len(viz_type),0,(i+1)/len(viz_type),1)
             renWin.AddRenderer(ren)
-        
+            iren = vtk.vtkRenderWindowInteractor()
+            iren.SetRenderWindow(renWin)
+
             # Add visuals to renderer
             if vizt == "ODF":
                 log.info('Rendering '+str(np.sum(mask) - 8) + ' ODFs')
@@ -231,34 +232,67 @@ class Spang:
                                               scale=skip_n*scale*0.5, norm=False,
                                               colormap='bwr', mask=mask,
                                               global_cm=True)
+
                 ren.add(fodf_spheres)
-            elif vizt == "ELLIPSOID":
+            elif vizt == "Ellipsoid":
                 log.info('Rendering '+str(np.sum(mask) - 8) + ' ellipsoids')
                 fodf_peaks = viz.tensor_slicer_sparse(self.f,
                                                       sphere=self.sphere,
                                                       scale=skip_n*scale*0.5,
                                                       mask=mask)
                 ren.add(fodf_peaks)
-            elif vizt == "PEAK":
+            elif vizt == "Peak":
                 log.info('Rendering '+str(np.sum(mask) - 8) + ' peaks')
                 fodf_peaks = viz.peak_slicer_sparse(self.f, self.Binv, self.sphere.vertices, 
                                                     scale=skip_n*scale*0.5,
                                                     mask=mask)
                 ren.add(fodf_peaks)
-            elif vizt == "PRINCIPAL":
+            elif vizt == "Principal":
                 log.info('Rendering '+str(np.sum(mask) - 8) + ' principals')
                 fodf_peaks = viz.principal_slicer_sparse(self.f, self.Binv, self.sphere.vertices, 
                                                          scale=skip_n*scale*0.5,
                                                          mask=mask)
                 ren.add(fodf_peaks)
-            elif vizt == "DENSITY":
+            elif vizt == "Density":
                 log.info('Rendering density')
                 volume = viz.density_slicer(self.f[...,0])
-                ren.AddVolume(volume)
+                ren.add(volume)
+
+            # Text
+            textProperty = vtk.vtkTextProperty()
+            textProperty.SetFontSize(100)
+            textProperty.SetFontFamilyToArial()
+            textProperty.BoldOn()
+            textProperty.SetJustificationToCentered()
+
+            textmapper = vtk.vtkTextMapper()
+            textmapper.SetTextProperty(textProperty)
+            textmapper.SetInput(vizt)
+
+            textactor = vtk.vtkActor2D()
+            textactor.SetMapper(textmapper)
+            textactor.SetPosition(250*mag, 500*mag - 125)
+
+            ren.AddActor(textactor)
 
             X = np.float(self.X - 1)
             Y = np.float(self.Y - 1)
             Z = np.float(self.Z - 1)
+
+            # Scale bar
+            if i == len(viz_type) - 1 and not save_parallels:
+                textmapper = vtk.vtkTextMapper()
+                textmapper.SetTextProperty(textProperty)
+                self.yscale = 1e-3*self.vox_dim[1]*self.f.shape[0]
+                yscale_label = '{:.2f}'.format(self.yscale) + ' um'
+                textmapper.SetInput(yscale_label)
+
+                textactor = vtk.vtkActor2D()
+                textactor.SetMapper(textmapper)
+                textactor.SetPosition(250*mag, 25)
+                ren.AddActor(textactor)
+
+                viz.draw_scale_bar(ren, X, Y, Z, line_color)
 
             # Draw boxes
             Nmax = np.max([X, Y, Z])
@@ -301,6 +335,15 @@ class Spang:
         else:
             writer = vtk.vtkPNGWriter()
             suffix = '.png'
+
+        # Set zooming
+        if zoom_start is None:
+            if save_parallels:
+                zoom_start = 1.7
+                zoom_end = 1.7
+            else:
+                zoom_start = 1.3
+                zoom_end = 1.3
 
         # Execute renders
         az = 0

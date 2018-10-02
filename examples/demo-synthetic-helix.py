@@ -30,9 +30,12 @@ def main():
     # Mask for fast rendering
     mask = phant.density() > 0
     # uncomment and try "interact=True" to interact with the phantom
-    phant.visualize(folder+'phantom/', mask=mask, interact=False, video=True, n_frames=36, skip_n=1, scale=1, viz_type=['ODF','ELLIPSOID', 'DENSITY'], tiff=True, mag=4,
-                    zoom_start=1.3, zoom_end=1.3)
-    phant.save_stats(folder+'phantom/')
+    phant.visualize(folder+'phantom/', mask=mask, interact=False, video=True,
+                    n_frames=360, scale=3,
+                    viz_type=['ODF','Peak','Density'], tiff=True,
+                    mag=4, skip_n=2)
+                    
+    # phant.save_stats(folder+'phantom/')
     phant.save_summary(folder+'phantom.pdf', mask=mask)
 
     # Specify microscope
@@ -61,9 +64,9 @@ def main():
     # Calculate reconstruction statistics and save
     mask = phant.density() > 0.1
     phant.visualize(folder+'phantom-recon/', mask=mask, interact=False, video=True,
-                    n_frames=36, viz_type=['ODF','ELLIPSOID', 'DENSITY'],
-                    tiff=True, zoom_start=1.3, zoom_end=1.3)
-    phant.save_stats(folder+'phantom-recon/')
+                    n_frames=36, viz_type=['ODF','Peak', 'Density'],
+                    tiff=True, skip_n=2, scale=3)
+    # phant.save_stats(folder+'phantom-recon/')
     phant.save_summary(folder+'phantom-recon.pdf', mask=mask)
     import pdb; pdb.set_trace()
 
