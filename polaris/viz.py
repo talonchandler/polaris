@@ -581,6 +581,8 @@ def density_slicer(density):
     # The mapper / ray cast function know how to render the data
     volumeMapper = vtk.vtkGPUVolumeRayCastMapper()
     volumeMapper.SetBlendModeToMaximumIntensity()
+    volumeMapper.SetSampleDistance(0.5)
+    volumeMapper.SetAutoAdjustSampleDistances(0)
     volumeMapper.SetInputConnection(dataImporter.GetOutputPort())
 
     # The class vtkVolume is used to pair the preaviusly declared volume as well as the properties to be used when rendering that volume.
@@ -594,35 +596,47 @@ def density_slicer(density):
     volume.SetProperty(volumeProperty)
     return volume
 
-def draw_unlit_line(ren, coords, colors, lw=0.5, streamtube=True):
+def draw_unlit_line(ren, coords, colors, lw=0.5, scale=1.0, streamtube=True):
     if streamtube:
-        act = actor.streamtube(coords, colors=colors, linewidth=lw, lod=False)
+        act = actor.streamtube(coords, colors=colors, linewidth=scale*lw, lod=False)
     else:
-        act = actor.line(coords, colors=colors, linewidth=lw)
+        act = actor.line(coords, colors=colors, linewidth=scale*lw)
     act.GetProperty().SetLighting(0)
     ren.AddActor(act)
 
-def draw_outer_box(ren, X, Y, Z, line_color):
-    draw_unlit_line(ren, [np.array([[0,0,0],[X,0,0]])], line_color, lw=0.3)
-    draw_unlit_line(ren, [np.array([[0,0,0],[0,Y,0]])], line_color, lw=0.3)
-    draw_unlit_line(ren, [np.array([[0,0,0],[0,0,Z]])], line_color, lw=0.3)            
-    draw_unlit_line(ren, [np.array([[X,Y,Z],[X,Y,0]])], line_color, lw=0.3)
-    draw_unlit_line(ren, [np.array([[X,Y,Z],[0,Y,Z]])], line_color, lw=0.3)
-    draw_unlit_line(ren, [np.array([[X,Y,Z],[X,0,Z]])], line_color, lw=0.3)
-    draw_unlit_line(ren, [np.array([[X,0,0],[X,Y,0]])], line_color, lw=0.3)
-    draw_unlit_line(ren, [np.array([[X,0,0],[X,0,Z]])], line_color, lw=0.3)
-    draw_unlit_line(ren, [np.array([[0,Y,0],[X,Y,0]])], line_color, lw=0.3)
-    draw_unlit_line(ren, [np.array([[0,Y,0],[0,Y,Z]])], line_color, lw=0.3)
-    draw_unlit_line(ren, [np.array([[0,0,Z],[X,0,Z]])], line_color, lw=0.3)
-    draw_unlit_line(ren, [np.array([[0,0,Z],[0,Y,Z]])], line_color, lw=0.3)
+def draw_outer_box(ren, roi, line_color, lw=0.3):
+    X0, Y0, Z0 = roi[0]
+    X1, Y1, Z1 = roi[1]
+    Nmax = np.max([X1 - X0, Y1 - Y0, Z1 - Z0])
+    scale = Nmax/63.0
+    lines = [[np.array([[X0,Y0,Z0],[X1,Y0,Z0]], dtype=np.float)],
+             [np.array([[X0,Y0,Z0],[X0,Y1,Z0]], dtype=np.float)],
+             [np.array([[X0,Y0,Z0],[X0,Y0,Z1]], dtype=np.float)],
+             [np.array([[X1,Y1,Z1],[X1,Y1,Z0]], dtype=np.float)],
+             [np.array([[X1,Y1,Z1],[X0,Y1,Z1]], dtype=np.float)],
+             [np.array([[X1,Y1,Z1],[X1,Y0,Z1]], dtype=np.float)],            
+             [np.array([[X1,Y0,Z0],[X1,Y1,Z0]], dtype=np.float)],
+             [np.array([[X1,Y0,Z0],[X1,Y0,Z1]], dtype=np.float)],
+             [np.array([[X0,Y1,Z0],[X1,Y1,Z0]], dtype=np.float)],
+             [np.array([[X0,Y1,Z0],[X0,Y1,Z1]], dtype=np.float)],
+             [np.array([[X0,Y0,Z1],[X1,Y0,Z1]], dtype=np.float)],
+             [np.array([[X0,Y0,Z1],[X0,Y1,Z1]], dtype=np.float)]]
+    for line in lines:
+        draw_unlit_line(ren, line, line_color, lw=lw, scale=scale)
 
 def draw_scale_bar(ren, X, Y, Z, line_color):
-    draw_unlit_line(ren, [np.array([[X,0,-Z//40],[X,Y,-Z//40]])], line_color, lw=0.3)
-    draw_unlit_line(ren, [np.array([[X,Y,-Z//40 + Z//60],[X,Y,-Z//40 - Z//60]])], line_color, lw=0.3)
-    draw_unlit_line(ren, [np.array([[X,0,-Z//40 + Z//60],[X,0,-Z//40 - Z//60]])], line_color, lw=0.3)
+    Nmax = np.max([X,Y,Z])
+    scale = Nmax/63.0    
+    draw_unlit_line(ren, [np.array([[X,0,-Z//40],[X,Y,-Z//40]])], line_color, lw=0.3, scale=scale)
+    # draw_unlit_line(ren, [np.array([[X,Y,-Z//40 + Z//60],[X,Y,-Z//40 - Z//60]])], line_color, lw=0.3, scale=scale)
+    # draw_unlit_line(ren, [np.array([[X,0,-Z//40 + Z//60],[X,0,-Z//40 - Z//60]])], line_color, lw=0.3, scale=scale)
     
-def draw_axes(ren, X, Y, Z):
-    Nmin = np.min([X, Y, Z])
-    draw_unlit_line(ren, [np.array([[0,0,0],[Nmin/5,0,0]])], np.array([1,0,0]))
-    draw_unlit_line(ren, [np.array([[0,0,0],[0,Nmin/5,0]])], np.array([0,1,0]))
-    draw_unlit_line(ren, [np.array([[0,0,0],[0,0,Nmin/5]])], np.array([0,0,1]))
+def draw_axes(ren, roi, lw=0.3):
+    X0, Y0, Z0 = roi[0]
+    X1, Y1, Z1 = roi[1]
+    Nmin = np.min([X1 - X0, Y1 - Y0, Z1 - Z0])
+    Nmax = np.max([X1 - X0, Y1 - Y0, Z1 - Z0])
+    scale = Nmax/63.0
+    draw_unlit_line(ren, [np.array([[X0,Y0,Z0],[X0+Nmin/5,Y0,Z0]])], np.array([1,0,0]), lw=lw, scale=scale)
+    draw_unlit_line(ren, [np.array([[X0,Y0,Z0],[X0,Y0+Nmin/5,Z0]])], np.array([0,1,0]), lw=lw, scale=scale)
+    draw_unlit_line(ren, [np.array([[X0,Y0,Z0],[X0,Y0,Z0+Nmin/5]])], np.array([0,0,1]), lw=lw, scale=scale)

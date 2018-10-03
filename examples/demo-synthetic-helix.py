@@ -20,7 +20,7 @@ def main():
     # helix phantom
     px = (64,64,64)
     # px = (64,128,64)
-    # px = (64,256,128)
+    # px = (64,64,128)
     # px = (64,128,256)
     phant = phantom.three_helix(vox_dim=vox_dim, px=px)
     # bead phantom - try varying orientation and kappa
@@ -29,11 +29,16 @@ def main():
 
     # Mask for fast rendering
     mask = phant.density() > 0
+    roi = [[20,20,20],[39,39,39]]
     # uncomment and try "interact=True" to interact with the phantom
     phant.visualize(folder+'phantom/', mask=mask, interact=False, video=True,
-                    n_frames=360, scale=3,
-                    viz_type=['ODF','Peak','Density'], tiff=True,
-                    mag=4, skip_n=2)
+                    n_frames=360, scale=3, viz_type=['ODF','Peak','Density'],
+                    compress=True, mag=1, skip_n=2, roi=roi)
+    # phant.visualize(folder+'phantom/', mask=mask, interact=False, video=True,
+    #                 n_frames=36, scale=3, viz_type=['Density'],
+    #                 tiff=True, mag=4, skip_n=2, roi=None)
+
+    import pdb; pdb.set_trace() 
                     
     # phant.save_stats(folder+'phantom/')
     phant.save_summary(folder+'phantom.pdf', mask=mask)
@@ -65,7 +70,7 @@ def main():
     mask = phant.density() > 0.1
     phant.visualize(folder+'phantom-recon/', mask=mask, interact=False, video=True,
                     n_frames=36, viz_type=['ODF','Peak', 'Density'],
-                    tiff=True, skip_n=2, scale=3)
+                    tiff=False, skip_n=2, scale=3, roi=roi, mag=1)
     # phant.save_stats(folder+'phantom-recon/')
     phant.save_summary(folder+'phantom-recon.pdf', mask=mask)
     import pdb; pdb.set_trace()
