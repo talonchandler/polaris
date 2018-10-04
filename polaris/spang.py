@@ -214,10 +214,14 @@ class Spang:
     def visualize(self, out_path='out/', outer_box=True, axes=True,
                   clip_neg=False, azimuth=0, elevation=0, n_frames=1, mag=1,
                   video=False, viz_type='ODF', mask=None, skip_n=1, scale=1,
-                  zoom_start=None, zoom_end=None, top_zoom=1.0, interact=False,
-                  save_parallels=False, gfa_filter=0, my_cam=None,
-                  compress=True, roi=None, corner_text=''):
+                  roi_scale=1, zoom_start=None, zoom_end=None, top_zoom=1,
+                  interact=False, save_parallels=False, my_cam=None,
+                  compress=True, roi=None, corner_text='', scalemap=None):
         log.info('Preparing to render ' + out_path)
+
+        # Handle scalemap
+        if scalemap is None:
+            scalemap = util.ScaleMap(min=np.min(self.f[...,0]), max=np.max(self.f[...,0]))
         
         # Prepare output
         util.mkdir(out_path)
@@ -278,7 +282,7 @@ class Spang:
                 else:
                     data = self.f[roi[0][0]:roi[1][0], roi[0][1]:roi[1][1], roi[0][2]:roi[1][2], :]
                     my_mask = mask[roi[0][0]:roi[1][0], roi[0][1]:roi[1][1], roi[0][2]:roi[1][2]]
-                    scale = 0.5
+                    scale = roi_scale
 
                 # Add visuals to renderer
                 if viz_type[col] == "ODF":
@@ -286,10 +290,11 @@ class Spang:
                     fodf_spheres = viz.odf_sparse(data, self.Binv, sphere=self.sphere,
                                                   scale=skip_n*scale*0.5, norm=False,
                                                   colormap='bwr', mask=my_mask,
-                                                  global_cm=True)
+                                                  global_cm=True, scalemap=scalemap)
 
                     ren.add(fodf_spheres)
                 elif viz_type[col] == "Ellipsoid":
+                    log.info('Warning: scaling is not implemented for ellipsoids')                    
                     log.info('Rendering '+str(np.sum(my_mask)) + ' ellipsoids')
                     fodf_peaks = viz.tensor_slicer_sparse(data,
                                                           sphere=self.sphere,
@@ -300,9 +305,10 @@ class Spang:
                     log.info('Rendering '+str(np.sum(my_mask)) + ' peaks')
                     fodf_peaks = viz.peak_slicer_sparse(data, self.Binv, self.sphere.vertices, 
                                                         scale=skip_n*scale*0.5,
-                                                        mask=my_mask)
+                                                        mask=my_mask, scalemap=scalemap)
                     ren.add(fodf_peaks)
                 elif viz_type[col] == "Principal":
+                    log.info('Warning: scaling is not implemented for principals')
                     log.info('Rendering '+str(np.sum(my_mask)) + ' principals')
                     fodf_peaks = viz.principal_slicer_sparse(data, self.Binv, self.sphere.vertices,
                                                              scale=skip_n*scale*0.5,
@@ -310,7 +316,7 @@ class Spang:
                     ren.add(fodf_peaks)
                 elif viz_type[col] == "Density":
                     log.info('Rendering density')
-                    volume = viz.density_slicer(data[...,0])
+                    volume = viz.density_slicer(data[...,0], scalemap)
                     ren.add(volume)
 
                 X = np.float(data.shape[0])

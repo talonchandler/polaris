@@ -5,7 +5,7 @@ from dipy.data import get_sphere
 import logging
 log = logging.getLogger('log')
 
-def three_helix(vox_dim=(130,130,130), px=(64,64,64), radius=600):
+def three_helix(vox_dim=(130,130,130), px=(64,64,64), radius=600, scale=[1,1,1]):
     phant = spang.Spang(np.zeros(px + (15,), dtype=np.float32), vox_dim=vox_dim)
     s = 20
     phant1 = helix_phantom(px=(s,s,s), radius=radius, pitch=1000,
@@ -17,9 +17,9 @@ def three_helix(vox_dim=(130,130,130), px=(64,64,64), radius=600):
     phant3 = helix_phantom(px=(s,s,s), radius=radius, pitch=1000,
                           vox_dim=vox_dim, max_l=4, center=(0,0,0),
                           normal=2, trange=(-2*np.pi, 2*np.pi))
-    phant.f[0:s,0:s,0:s] = phant1.f
-    phant.f[s:2*s,s:2*s,s:2*s] = phant2.f
-    phant.f[2*s:3*s,2*s:3*s,2*s:3*s] = phant3.f
+    phant.f[0:s,0:s,0:s] = phant1.f*scale[0]
+    phant.f[s:2*s,s:2*s,s:2*s] = phant2.f*scale[1]
+    phant.f[2*s:3*s,2*s:3*s,2*s:3*s] = phant3.f*scale[2]
     return phant
 
 def helix_phantom(px=(20,20,20), vox_dim=(100,100,100), max_l=6,

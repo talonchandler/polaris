@@ -235,7 +235,7 @@ def draw_annotations(ax, row, col, row_labels, col_labels, pos=(-0.05, 1.05, 0.5
 
 def odf_sparse(odfsh, Binv, affine=None, mask=None, sphere=None, scale=2.2,
                norm=True, radial_scale=True, opacity=1.,
-               colormap='plasma', global_cm=False):
+               colormap='plasma', global_cm=False, scalemap=util.ScaleMap()):
     if mask is None:
         mask = np.ones(odfsh.shape[:3], dtype=np.bool)
     else:
@@ -259,7 +259,8 @@ def odf_sparse(odfsh, Binv, affine=None, mask=None, sphere=None, scale=2.2,
                                              radial_scale=radial_scale,
                                              opacity=opacity,
                                              colormap=colormap,
-                                             global_cm=global_cm)
+                                             global_cm=global_cm,
+                                             scalemap=scalemap)
             self.SetMapper(self.mapper)
 
         def display(self, x=None, y=None, z=None):
@@ -277,10 +278,10 @@ def odf_sparse(odfsh, Binv, affine=None, mask=None, sphere=None, scale=2.2,
 
     return odf_actor
 
-def _odf_slicer_mapper(odfsh, Binv, affine=None, mask=None,
-                       sphere=None, scale=2.2,
-                       norm=True, radial_scale=True, opacity=1.,
-                       colormap='plasma', global_cm=False):
+def _odf_slicer_mapper(odfsh, Binv, affine=None, mask=None, sphere=None,
+                       scale=2.2, norm=True, radial_scale=True, opacity=1.,
+                       colormap='plasma', global_cm=False,
+                       scalemap=util.ScaleMap()):
     if mask is None:
         mask = np.ones(odfs.shape[:3])
 
@@ -299,7 +300,8 @@ def _odf_slicer_mapper(odfsh, Binv, affine=None, mask=None,
     all_faces = []
     all_ms = []
     masked_sh = odfsh[ijk[:,0], ijk[:,1], ijk[:,2]] # Assemble masked sh
-    masked_radii = np.einsum('vj,pj->vp', Binv.T, masked_sh) # Radii
+    masked_sh_scaled = np.einsum('ij,i->ij', masked_sh, scalemap.mapper(masked_sh[:,0])/masked_sh[:,0]) # Scale mapping
+    masked_radii = np.einsum('vj,pj->vp', Binv.T, masked_sh_scaled) # Radii
     xyz_vertices = np.einsum('ij,ik->ikj', vertices, masked_radii)*scale/np.max(masked_radii) + ijk # Vertices
     all_xyz = xyz_vertices.reshape(-1, xyz_vertices.shape[-1], order='F') # Reshape
     all_xyz_vtk = numpy_support.numpy_to_vtk(all_xyz, deep=True) # Convert to vtk
@@ -359,12 +361,14 @@ def _odf_slicer_mapper(odfsh, Binv, affine=None, mask=None,
     return mapper
 
 def peak_slicer_sparse(odfsh, Binv, vertices, mask=None, affine=None, scale=1,
-                       colors=None, opacity=1., linewidth=0.1,
-                       lod=False, lod_points=10 ** 4, lod_points_size=30):
+                       colors=None, opacity=1., linewidth=0.1, lod=False,
+                       lod_points=10 ** 4, lod_points_size=30,
+                       scalemap=util.ScaleMap()):
 
     xyz = np.ascontiguousarray(np.array(np.nonzero(mask)).T)
     masked_sh = odfsh[mask] # Assemble masked sh
-    masked_radii = np.einsum('vj,pj->vp', Binv.T, masked_sh) # Radii
+    masked_sh_scaled = np.einsum('ij,i->ij', masked_sh, scalemap.mapper(masked_sh[:,0])/masked_sh[:,0]) # Scale mapping
+    masked_radii = np.einsum('vj,pj->vp', Binv.T, masked_sh_scaled) # Radii
     index = np.argmax(masked_radii, axis=0)
     peak_dirs = vertices[index]
     peak_values = np.amax(masked_radii, axis=0)
@@ -545,10 +549,10 @@ def _makeNd(array, ndim):
     new_shape = (1,) * (ndim - array.ndim) + array.shape
     return array.reshape(new_shape)
 
-def density_slicer(density):
+def density_slicer(density, scalemap=util.ScaleMap()):
 
     # Set opacity
-    vol = np.interp(np.swapaxes(density, 0, 2), [density.min(), density.max()], [0, 255])
+    vol = np.interp(np.swapaxes(density, 0, 2), [scalemap.min, scalemap.max], [0, 255])
     vol = vol.astype('uint8')
 
     X, Y, Z = density.shape

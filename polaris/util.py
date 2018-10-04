@@ -143,3 +143,26 @@ def rfftlen(ind):
         return int((ind/2) + 1)
     else:
         return int((ind + 1)/2)
+
+# For handling min/max and window/level consistently
+class ScaleMap:
+    def __init__(self, min=0, max=1, window=None, level=None):
+        if min is None and max is None:
+            self.min = window - level/2
+            self.max = window + level/2
+            self.window = window
+            self.level = level
+        elif window is None and level is None:
+            self.min = min
+            self.max = max
+            self.window = max - min
+            self.level = (max - min)/2
+        else:
+            print("Warning: only use min/max or window/level.")
+
+    def mapper(self, x):
+        out = np.zeros_like(x)
+        out = (x - self.min)/self.window
+        out[x < self.min] = 0
+        out[x > self.max] = 1
+        return out
