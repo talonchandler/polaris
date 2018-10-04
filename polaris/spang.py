@@ -278,11 +278,11 @@ class Spang:
                 else:
                     data = self.f[roi[0][0]:roi[1][0], roi[0][1]:roi[1][1], roi[0][2]:roi[1][2], :]
                     my_mask = mask[roi[0][0]:roi[1][0], roi[0][1]:roi[1][1], roi[0][2]:roi[1][2]]
-                    scale = 1.0
+                    scale = 0.5
 
                 # Add visuals to renderer
                 if viz_type[col] == "ODF":
-                    log.info('Rendering '+str(np.sum(mask) - 8) + ' ODFs')
+                    log.info('Rendering '+str(np.sum(my_mask)) + ' ODFs')
                     fodf_spheres = viz.odf_sparse(data, self.Binv, sphere=self.sphere,
                                                   scale=skip_n*scale*0.5, norm=False,
                                                   colormap='bwr', mask=my_mask,
@@ -290,20 +290,20 @@ class Spang:
 
                     ren.add(fodf_spheres)
                 elif viz_type[col] == "Ellipsoid":
-                    log.info('Rendering '+str(np.sum(mask) - 8) + ' ellipsoids')
+                    log.info('Rendering '+str(np.sum(my_mask)) + ' ellipsoids')
                     fodf_peaks = viz.tensor_slicer_sparse(data,
                                                           sphere=self.sphere,
                                                           scale=skip_n*scale*0.5,
                                                           mask=my_mask)
                     ren.add(fodf_peaks)
                 elif viz_type[col] == "Peak":
-                    log.info('Rendering '+str(np.sum(mask) - 8) + ' peaks')
+                    log.info('Rendering '+str(np.sum(my_mask)) + ' peaks')
                     fodf_peaks = viz.peak_slicer_sparse(data, self.Binv, self.sphere.vertices, 
                                                         scale=skip_n*scale*0.5,
                                                         mask=my_mask)
                     ren.add(fodf_peaks)
                 elif viz_type[col] == "Principal":
-                    log.info('Rendering '+str(np.sum(mask) - 8) + ' principals')
+                    log.info('Rendering '+str(np.sum(my_mask)) + ' principals')
                     fodf_peaks = viz.principal_slicer_sparse(data, self.Binv, self.sphere.vertices,
                                                              scale=skip_n*scale*0.5,
                                                              mask=my_mask)
@@ -316,7 +316,7 @@ class Spang:
                 X = np.float(data.shape[0])
                 Y = np.float(data.shape[1])
                 Z = np.float(data.shape[2])
-
+                
                 # Titles                
                 if row == 0:
                     viz.add_text(ren, viz_type[col], 0.5, 0.96, mag)
@@ -370,6 +370,7 @@ class Spang:
                     cam.SetPosition((X//2 + Rcam, Y//2, Z//2))
                     cam.SetViewUp((0, 0, 1))
                     cam.SetFocalPoint((X//2, Y//2, Z//2))
+                    #ren.reset_camera()
                 else:
                     ren.set_camera(*my_cam)
                 ren.azimuth(azimuth)
@@ -386,7 +387,7 @@ class Spang:
                     else:
                         zoom_start.append(1.3)
                         zoom_end.append(1.3)
-
+        
         # Setup writer
         writer = vtk.vtkTIFFWriter()
         if not compress:
@@ -424,6 +425,7 @@ class Spang:
                 for j, ren in enumerate(rens):
                     ren.zoom(1 + ((zoom_end[j] - zoom_start[j])/n_frames))
                     ren.azimuth(az)
+                    ren.reset_clipping_range()
                 renderLarge = vtk.vtkRenderLargeImage()
                 renderLarge.SetMagnification(1)
                 renderLarge.SetInput(ren)
@@ -479,7 +481,7 @@ class SpangSeries:
     a list of file names.
     """
     def __init__(self, filenames, label, vox_dim=(1,1,1)):
-        if os.path.isdir(filenames):
+        if not isinstance(filenames, list):#os.path.isdir(filenames):
             # If folder
             import glob
             self.filenames = sorted(glob.glob(filenames+'*.tif'))
@@ -488,7 +490,7 @@ class SpangSeries:
         self.label = label
         self.vox_dim = vox_dim
 
-    def visualize(self, output, mag=1, n_frames=1, hyperstack=None, **kwargs):
+    def visualize(self, output, density_filter=0.1, mag=1, n_frames=1, hyperstack=None, **kwargs):
         util.mkdir(output)
 
         # Generate visuals frame by frame
@@ -496,7 +498,7 @@ class SpangSeries:
         for i, filename in enumerate(self.filenames):
             sp = Spang(vox_dim=self.vox_dim)
             sp.read_tiff(filename)
-            mask = sp.density() > 0.1
+            mask = sp.density() > density_filter
             sp.visualize(output+str(i).zfill(3)+'/', mask=mask, corner_text=self.label(i),
                          n_frames=n_frames, mag=mag, **kwargs)
         
