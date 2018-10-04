@@ -216,7 +216,8 @@ class Spang:
                   video=False, viz_type='ODF', mask=None, skip_n=1, scale=1,
                   roi_scale=1, zoom_start=None, zoom_end=None, top_zoom=1,
                   interact=False, save_parallels=False, my_cam=None,
-                  compress=True, roi=None, corner_text='', scalemap=None):
+                  compress=True, roi=None, corner_text='', scalemap=None,
+                  roi_scalemap=None):
         log.info('Preparing to render ' + out_path)
 
         # Handle scalemap
@@ -279,10 +280,12 @@ class Spang:
                     data = self.f
                     my_mask = global_mask
                     scale = scale
+                    scalemap = scalemap
                 else:
                     data = self.f[roi[0][0]:roi[1][0], roi[0][1]:roi[1][1], roi[0][2]:roi[1][2], :]
                     my_mask = mask[roi[0][0]:roi[1][0], roi[0][1]:roi[1][1], roi[0][2]:roi[1][2]]
                     scale = roi_scale
+                    scalemap = roi_scalemap
 
                 # Add visuals to renderer
                 if viz_type[col] == "ODF":
