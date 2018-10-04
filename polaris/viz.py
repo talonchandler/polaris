@@ -558,8 +558,8 @@ def density_slicer(density):
     dataImporter.CopyImportVoidPointer(data_string, len(data_string))
     dataImporter.SetDataScalarTypeToUnsignedChar()
     dataImporter.SetNumberOfScalarComponents(1)
-    dataImporter.SetDataExtent(0, Z - 1, 0, Y - 1, 0, X - 1)
-    dataImporter.SetWholeExtent(0, Z - 1, 0, Y - 1, 0, X - 1)
+    dataImporter.SetDataExtent(0, X - 1, 0, Y - 1, 0, Z - 1)
+    dataImporter.SetWholeExtent(0, X - 1, 0, Y - 1, 0, Z - 1)
 
     # Create transfer mapping scalar value to opacity
     opacityTransferFunction = vtk.vtkPiecewiseFunction()
@@ -640,3 +640,31 @@ def draw_axes(ren, roi, lw=0.3):
     draw_unlit_line(ren, [np.array([[X0,Y0,Z0],[X0+Nmin/5,Y0,Z0]])], np.array([1,0,0]), lw=lw, scale=scale)
     draw_unlit_line(ren, [np.array([[X0,Y0,Z0],[X0,Y0+Nmin/5,Z0]])], np.array([0,1,0]), lw=lw, scale=scale)
     draw_unlit_line(ren, [np.array([[X0,Y0,Z0],[X0,Y0,Z0+Nmin/5]])], np.array([0,0,1]), lw=lw, scale=scale)
+
+def add_text(ren, text, x, y, mag, va='center', ha='center'):
+    textProperty = vtk.vtkTextProperty()
+    textProperty.SetFontSize(25*mag)
+    textProperty.SetFontFamilyToArial()
+    textProperty.BoldOn()
+
+    if ha == 'right':
+        textProperty.SetJustificationToRight()
+    elif ha == 'left':
+        textProperty.SetJustificationToLeft()
+    else:
+        textProperty.SetJustificationToCentered()
+    if va == 'top':
+        textProperty.SetVerticalJustificationToTop()
+    elif va == 'bottom':
+        textProperty.SetVerticalJustificationToBottom()
+    else:
+        textProperty.SetVerticalJustificationToCentered()
+    
+    textmapper = vtk.vtkTextMapper()
+    textmapper.SetTextProperty(textProperty)
+    textmapper.SetInput(text)
+
+    textactor = vtk.vtkActor2D()
+    textactor.SetMapper(textmapper)
+    textactor.SetPosition(500*mag*x, 500*mag*y)
+    ren.AddActor(textactor)

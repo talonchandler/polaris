@@ -1,5 +1,8 @@
 import numpy as np
 from scipy.special import sph_harm, hyp1f1
+import os
+import logging
+log = logging.getLogger('log')
 
 # SciPy real spherical harmonics with identical interface to SymPy's Znm
 # Useful for fast numerical evaluation of Znm
@@ -97,6 +100,13 @@ def j2str(j):
     l, m = j2lm(j)
     string += str(l) + '}^{' + str(m) + '}$'
     return np.array(string, dtype=object)
+
+# Make directory if it doesn't exist
+def mkdir(filename):
+    folder = os.path.dirname(filename)
+    if not os.path.exists(folder):
+        log.info('Making folder '+folder)
+        os.makedirs(folder)
 
 # Returns "equally" spaced points on a unit sphere in spherical coordinates.
 # http://stackoverflow.com/a/26127012/5854689

@@ -21,8 +21,8 @@ class Spang:
     and spherical harmonic coefficients [x, y, z, j]. A Spang object is 
     a discretized member of object space U. 
     """
-    def __init__(self, f=np.zeros((3,3,3,1)), vox_dim=(1,1,1),
-                 sphere=get_sphere('symmetric724')):
+    def __init__(self, f=np.zeros((3,3,3,15), dtype=np.float32),
+                 vox_dim=(1,1,1), sphere=get_sphere('symmetric724')):
         self.X = f.shape[0]
         self.Y = f.shape[1]
         self.Z = f.shape[2]
@@ -182,6 +182,7 @@ class Spang:
         viz.plot5d(filename, self.f[...,None], col_labels=col_labels)
             
     def save_tiff(self, filename='sh.tif', data=None):
+        util.mkdir(filename)
         if data is None:
             data = self.f
         
@@ -197,7 +198,7 @@ class Spang:
     def read_tiff(self, filename):
         log.info('Reading '+filename)
         with tifffile.TiffFile(filename) as tf:
-            self.f = np.moveaxis(tf.asarray(), [0, 1, 2, 3], [2, 3, 1, 0])
+            self.f = np.ascontiguousarray(np.moveaxis(tf.asarray(), [0, 1, 2, 3], [2, 3, 1, 0]))
         self.X = self.f.shape[0]
         self.Y = self.f.shape[1]
         self.Z = self.f.shape[2]
@@ -211,16 +212,15 @@ class Spang:
         self.save_tiff(filename=folder+'gfa.tif', data=self.gfa())
         
     def visualize(self, out_path='out/', outer_box=True, axes=True,
-                  clip_neg=False, azimuth=0, elevation=0, n_frames=1,
-                  size=(600,600), mag=4, video=False, viz_type='ODF', mask=None,
-                  skip_n=1, scale=1, zoom_start=None, zoom_end=None,
-                  interact=False, save_parallels=False, gfa_filter=0,
-                  my_cam=None, compress=True, roi=None):
+                  clip_neg=False, azimuth=0, elevation=0, n_frames=1, mag=1,
+                  video=False, viz_type='ODF', mask=None, skip_n=1, scale=1,
+                  zoom_start=None, zoom_end=None, top_zoom=1.0, interact=False,
+                  save_parallels=False, gfa_filter=0, my_cam=None,
+                  compress=True, roi=None, corner_text=''):
         log.info('Preparing to render ' + out_path)
         
         # Prepare output
-        if not os.path.exists(out_path):
-           os.makedirs(out_path)
+        util.mkdir(out_path)
             
         # Mask
         if mask is None:
@@ -258,6 +258,8 @@ class Spang:
 
         # For each viz_type
         rens = []
+        zoom_start = []
+        zoom_end = []
         for row in range(rows):
             for col in range(cols):
                 # Render
@@ -315,38 +317,20 @@ class Spang:
                 Y = np.float(data.shape[1])
                 Z = np.float(data.shape[2])
 
-                # Titles
-                textProperty = vtk.vtkTextProperty()
-                textProperty.SetFontSize(25*mag)
-                textProperty.SetFontFamilyToArial()
-                textProperty.BoldOn()
-                textProperty.SetJustificationToCentered()
-                
+                # Titles                
                 if row == 0:
-                    textmapper = vtk.vtkTextMapper()
-                    textmapper.SetTextProperty(textProperty)
-                    textmapper.SetInput(viz_type[col])
-
-                    textactor = vtk.vtkActor2D()
-                    textactor.SetMapper(textmapper)
-                    textactor.SetPosition(250*mag, 500*mag - 25*(mag+1))
-
-                    ren.AddActor(textactor)
+                    viz.add_text(ren, viz_type[col], 0.5, 0.96, mag)
                     
                 # Scale bar
                 if col == cols - 1 and not save_parallels:
-                    textmapper = vtk.vtkTextMapper()
-                    textmapper.SetTextProperty(textProperty)
                     yscale = 1e-3*self.vox_dim[1]*data.shape[1]
                     yscale_label = '{:.2f}'.format(yscale) + ' um'
-                    textmapper.SetInput(yscale_label)
-
-                    textactor = vtk.vtkActor2D()
-                    textactor.SetMapper(textmapper)
-                    textactor.SetPosition(250*mag, 5*(mag+1))
-                    ren.AddActor(textactor)
-
+                    viz.add_text(ren, yscale_label, 0.5, 0.03, mag)
                     viz.draw_scale_bar(ren, X, Y, Z, line_color)
+
+                # Corner text
+                if row == rows - 1 and col == 0:
+                    viz.add_text(ren, corner_text, 0.03, 0.03, mag, ha='left')
 
                 # Draw boxes
                 Nmax = np.max([X, Y, Z])
@@ -391,19 +375,22 @@ class Spang:
                 ren.azimuth(azimuth)
                 ren.elevation(elevation)
 
+                # Set zooming
+                if save_parallels:
+                    zoom_start.append(1.7)
+                    zoom_end.append(1.7)
+                else:
+                    if row == 0:
+                        zoom_start.append(1.3*top_zoom)
+                        zoom_end.append(1.3*top_zoom)
+                    else:
+                        zoom_start.append(1.3)
+                        zoom_end.append(1.3)
+
         # Setup writer
         writer = vtk.vtkTIFFWriter()
         if not compress:
             writer.SetCompressionToNoCompression()
-
-        # Set zooming
-        if zoom_start is None:
-            if save_parallels:
-                zoom_start = 1.7
-                zoom_end = 1.7
-            else:
-                zoom_start = 1.3
-                zoom_end = 1.3
 
         # Execute renders
         az = 0
@@ -431,18 +418,21 @@ class Spang:
                 writer.Write()
         else:
             # Rendering for movies 
-            for ren in rens:
-                ren.zoom(zoom_start)
+            for j, ren in enumerate(rens):
+                ren.zoom(zoom_start[j])
             for i in tqdm(range(n_frames)):
-                for ren in rens:
-                    ren.zoom(1 + ((zoom_end - zoom_start)/n_frames))
+                for j, ren in enumerate(rens):
+                    ren.zoom(1 + ((zoom_end[j] - zoom_start[j])/n_frames))
                     ren.azimuth(az)
                 renderLarge = vtk.vtkRenderLargeImage()
                 renderLarge.SetMagnification(1)
                 renderLarge.SetInput(ren)
                 renderLarge.Update()
                 writer.SetInputConnection(renderLarge.GetOutputPort())
-                writer.SetFileName(out_path + str(i).zfill(3) + '.tif')
+                if n_frames != 1:
+                    writer.SetFileName(out_path + str(i).zfill(3) + '.tif')
+                else:
+                    writer.SetFileName(out_path + '.tif')
                 writer.Write()
                 az = naz
 
@@ -482,3 +472,51 @@ class Spang:
     #         print('myline('+str(ptr[0])+','+str(ptr[1])+','+str(ptr[2])+','+
     #               str(ptr2[0])+','+str(ptr2[1])+','+str(ptr2[2])+');')
 
+class SpangSeries:
+    """
+    A SpangSeries is a class for handling and visualizing a series of Spang
+    objects without loading all of the data into memory. The main attribute is 
+    a list of file names.
+    """
+    def __init__(self, filenames, label, vox_dim=(1,1,1)):
+        if os.path.isdir(filenames):
+            # If folder
+            import glob
+            self.filenames = sorted(glob.glob(filenames+'*.tif'))
+        else:
+            self.filenames = filenames
+        self.label = label
+        self.vox_dim = vox_dim
+
+    def visualize(self, output, mag=1, n_frames=1, hyperstack=None, **kwargs):
+        util.mkdir(output)
+
+        # Generate visuals frame by frame
+        log.info('Generating frames')
+        for i, filename in enumerate(self.filenames):
+            sp = Spang(vox_dim=self.vox_dim)
+            sp.read_tiff(filename)
+            mask = sp.density() > 0.1
+            sp.visualize(output+str(i).zfill(3)+'/', mask=mask, corner_text=self.label(i),
+                         n_frames=n_frames, mag=mag, **kwargs)
+        
+        # Generate uncompressed hyperstack from compressed files
+        if hyperstack is not None:
+            # Get image dimension of first file
+            with tifffile.TiffFile(output+'000/000.tif') as tf:
+                tiffshape = tf.asarray().shape
+
+            # Read all frames into memory
+            log.info('Reading frames into memory')                    
+            data = np.zeros(tiffshape + (len(self.filenames),) + (n_frames,), dtype=np.uint8)
+            for i in range(len(self.filenames)):        
+                for j in range(n_frames):
+                    filename = output+str(i).zfill(3)+'/'+str(j).zfill(3)+'.tif'
+                    with tifffile.TiffFile(filename) as tf:
+                        data[...,i,j] = tf.asarray()
+
+            # Write to a single hyperstack
+            log.info('Writing hyperstack')                    
+            with tifffile.TiffWriter(hyperstack, imagej=True) as tif:
+                d = np.moveaxis(data, [-1, -2], [1, 0])
+                tif.save(data=d[:,:,None,:,:,:]) # TZCYXS
