@@ -213,10 +213,11 @@ class Spang:
         
     def visualize(self, out_path='out/', outer_box=True, axes=True,
                   clip_neg=False, azimuth=0, elevation=0, n_frames=1, mag=1,
-                  video=False, viz_type='ODF', mask=None, skip_n=1, scale=1,
-                  roi_scale=1, zoom_start=None, zoom_end=None, top_zoom=1,
-                  interact=False, save_parallels=False, my_cam=None,
-                  compress=True, roi=None, corner_text='', scalemap=None):
+                  video=False, viz_type='ODF', mask=None, mask_roi=None, skip_n=1,
+                  skip_n_roi=1, scale=1, roi_scale=1, zoom_start=None,
+                  zoom_end=None, top_zoom=1, interact=False,
+                  save_parallels=False, my_cam=None, compress=True, roi=None,
+                  corner_text='', scalemap=None):
         log.info('Preparing to render ' + out_path)
 
         # Handle scalemap
@@ -226,12 +227,6 @@ class Spang:
         # Prepare output
         util.mkdir(out_path)
             
-        # Mask
-        if mask is None:
-            mask = np.ones((self.X, self.Y, self.Z), dtype=np.bool)
-        skip_mask = np.zeros(mask.shape, dtype=np.bool)
-        skip_mask[::skip_n,::skip_n,::skip_n] = 1
-        global_mask = np.logical_and(mask, skip_mask)
 
         
         # Setup vtk renderers
@@ -275,13 +270,23 @@ class Spang:
                 iren = vtk.vtkRenderWindowInteractor()
                 iren.SetRenderWindow(renWin)
 
+                # Mask
+                if mask is None:
+                    mask = np.ones((self.X, self.Y, self.Z), dtype=np.bool)
+
+                # Main vs roi
                 if row == 0:
                     data = self.f
-                    my_mask = global_mask
+                    skip_mask = np.zeros(mask.shape, dtype=np.bool)
+                    skip_mask[::skip_n,::skip_n,::skip_n] = 1
+                    my_mask = np.logical_and(mask, skip_mask)
                     scale = scale
                 else:
                     data = self.f[roi[0][0]:roi[1][0], roi[0][1]:roi[1][1], roi[0][2]:roi[1][2], :]
-                    my_mask = mask[roi[0][0]:roi[1][0], roi[0][1]:roi[1][1], roi[0][2]:roi[1][2]]
+                    roi_mask = mask_roi[roi[0][0]:roi[1][0], roi[0][1]:roi[1][1], roi[0][2]:roi[1][2]]
+                    skip_mask = np.zeros(roi_mask.shape, dtype=np.bool)
+                    skip_mask[::skip_n_roi,::skip_n_roi,::skip_n_roi] = 1
+                    my_mask = np.logical_and(roi_mask, skip_mask)
                     scale = roi_scale
 
                 # Add visuals to renderer
