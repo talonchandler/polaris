@@ -213,19 +213,11 @@ class Spang:
         
     def visualize(self, out_path='out/', outer_box=True, axes=True,
                   clip_neg=False, azimuth=0, elevation=0, n_frames=1, mag=1,
-<<<<<<< HEAD
                   video=False, viz_type='ODF', mask=None, mask_roi=None, skip_n=1,
                   skip_n_roi=1, scale=1, roi_scale=1, zoom_start=None,
                   zoom_end=None, top_zoom=1, interact=False,
                   save_parallels=False, my_cam=None, compress=True, roi=None,
                   corner_text='', scalemap=None):
-=======
-                  video=False, viz_type='ODF', mask=None, skip_n=1, scale=1,
-                  roi_scale=1, zoom_start=None, zoom_end=None, top_zoom=1,
-                  interact=False, save_parallels=False, my_cam=None,
-                  compress=True, roi=None, corner_text='', scalemap=None,
-                  roi_scalemap=None):
->>>>>>> d4627d374356abf4aa035effa8aee8af0787abea
         log.info('Preparing to render ' + out_path)
 
         # Handle scalemap
