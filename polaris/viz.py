@@ -234,8 +234,9 @@ def draw_annotations(ax, row, col, row_labels, col_labels, pos=(-0.05, 1.05, 0.5
         ax.annotate(row_labels[row], xy=(xc,yc), xytext=(-1.35, 1), xycoords='axes fraction', textcoords='axes fraction', va='center', ha='center', fontsize=12, rotation=90)
 
 def odf_sparse(odfsh, Binv, affine=None, mask=None, sphere=None, scale=2.2,
-               norm=True, radial_scale=True, opacity=1.,
-               colormap='plasma', global_cm=False, scalemap=util.ScaleMap()):
+               norm=True, radial_scale=True, opacity=1., colormap='plasma',
+               global_cm=False, scalemap=util.ScaleMap(), odf_sphere=False,
+               flat=False):
     if mask is None:
         mask = np.ones(odfsh.shape[:3], dtype=np.bool)
     else:
@@ -260,7 +261,8 @@ def odf_sparse(odfsh, Binv, affine=None, mask=None, sphere=None, scale=2.2,
                                              opacity=opacity,
                                              colormap=colormap,
                                              global_cm=global_cm,
-                                             scalemap=scalemap)
+                                             scalemap=scalemap,
+                                             odf_sphere=odf_sphere)
             self.SetMapper(self.mapper)
 
         def display(self, x=None, y=None, z=None):
@@ -276,12 +278,16 @@ def odf_sparse(odfsh, Binv, affine=None, mask=None, sphere=None, scale=2.2,
     odf_actor = OdfSlicerActor()
     odf_actor.display_extent(0, szx - 1, 0, szy - 1, 0, szz - 1)
 
+    if flat:
+        odf_actor.GetProperty().SetAmbient(1)
+        odf_actor.GetProperty().SetDiffuse(0)
+
     return odf_actor
 
 def _odf_slicer_mapper(odfsh, Binv, affine=None, mask=None, sphere=None,
                        scale=2.2, norm=True, radial_scale=True, opacity=1.,
                        colormap='plasma', global_cm=False,
-                       scalemap=util.ScaleMap()):
+                       scalemap=util.ScaleMap(), odf_sphere=False):
     if mask is None:
         mask = np.ones(odfs.shape[:3])
 
@@ -301,7 +307,11 @@ def _odf_slicer_mapper(odfsh, Binv, affine=None, mask=None, sphere=None,
     all_ms = []
     masked_sh = odfsh[ijk[:,0], ijk[:,1], ijk[:,2]] # Assemble masked sh
     masked_sh_scaled = np.einsum('ij,i->ij', masked_sh, scalemap.mapper(masked_sh[:,0])/masked_sh[:,0]) # Scale mapping
-    masked_radii = np.einsum('vj,pj->vp', Binv.T, masked_sh_scaled) # Radii
+    radii = np.einsum('vj,pj->vp', Binv.T, masked_sh_scaled) # Radii
+    if odf_sphere:
+        masked_radii = np.einsum('vj,pj->vp', np.ones_like(Binv.T), masked_sh_scaled) # Radii
+    else:
+        masked_radii = radii
     xyz_vertices = np.einsum('ij,ik->ikj', vertices, masked_radii)*scale/np.max(masked_radii) + ijk # Vertices
     all_xyz = xyz_vertices.reshape(-1, xyz_vertices.shape[-1], order='F') # Reshape
     all_xyz_vtk = numpy_support.numpy_to_vtk(all_xyz, deep=True) # Convert to vtk
@@ -314,13 +324,13 @@ def _odf_slicer_mapper(odfsh, Binv, affine=None, mask=None, sphere=None,
                            all_faces))
     ncells = len(all_faces)
     all_faces = np.ascontiguousarray(all_faces.ravel(), dtype='i8')
-    all_faces_vtk = numpy_support.numpy_to_vtkIdTypeArray(all_faces,
-                                                          deep=True)
+    all_faces_vtk = numpy_support.numpy_to_vtkIdTypeArray(all_faces, deep=True)
 
+    all_ms = radii
     if global_cm:
-        all_ms = masked_radii
-        all_ms[0,0] = -np.max(masked_radii)
-        all_ms = all_ms.flatten(order='F')
+        all_ms[0,0] = -np.max(radii) # For setting colors    
+    all_ms = all_ms.flatten(order='F')
+    
     points = vtk.vtkPoints()
     points.SetData(all_xyz_vtk)
 
@@ -328,18 +338,21 @@ def _odf_slicer_mapper(odfsh, Binv, affine=None, mask=None, sphere=None,
     cells.SetCells(ncells, all_faces_vtk)
 
     if colormap is not None:
+        cols = create_colormap(all_ms.ravel(), colormap)
         if global_cm:
-            cols = create_colormap(all_ms.ravel(), colormap)
-        else:
-            cols = np.zeros((ijk.shape[0],) + sphere.vertices.shape,
-                            dtype='f4')
-            for k in range(ijk.shape[0]):
-                tmp = create_colormap(all_ms[k].ravel(), colormap)
-                cols[k] = tmp.copy()
+            cols[0] = cols[1]
+        # else:
+        #     cols = np.zeros((ijk.shape[0],) + sphere.vertices.shape,
+        #                     dtype='f4')
+        #     for k in range(ijk.shape[0]):
+        #         all_ms = (all_ms - np.min(all_ms))/(np.max(all_ms) - np.min(all_ms))
+        #         import pdb; pdb.set_trace() 
+        #         tmp = create_colormap(all_ms[k].ravel(), colormap)
+        #         cols[k] = tmp.copy()
 
-            cols = np.ascontiguousarray(
-                np.reshape(cols, (cols.shape[0] * cols.shape[1],
-                           cols.shape[2])), dtype='f4')
+        #     cols = np.ascontiguousarray(
+        #         np.reshape(cols, (cols.shape[0] * cols.shape[1],
+        #                    cols.shape[2])), dtype='f4')
 
         vtk_colors = numpy_support.numpy_to_vtk(
             np.asarray(255 * cols),
@@ -379,6 +392,7 @@ def peak_slicer_sparse(odfsh, Binv, vertices, mask=None, affine=None, scale=1,
             symm = np.vstack((-peak_dirs[i,:]*peak + xyz[i],
                               peak_dirs[i,:]*peak + xyz[i]))
             list_dirs.append(symm)
+    
     return actor.streamtube(list_dirs, colors=colors,
                             opacity=opacity, linewidth=linewidth*scale,
                             lod=lod, lod_points=lod_points,
@@ -585,7 +599,7 @@ def density_slicer(density, scalemap=util.ScaleMap()):
     # The mapper / ray cast function know how to render the data
     volumeMapper = vtk.vtkGPUVolumeRayCastMapper()
     volumeMapper.SetBlendModeToMaximumIntensity()
-    volumeMapper.SetSampleDistance(0.5)
+    volumeMapper.SetSampleDistance(0.1)
     volumeMapper.SetAutoAdjustSampleDistances(0)
     volumeMapper.SetInputConnection(dataImporter.GetOutputPort())
 

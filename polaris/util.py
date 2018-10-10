@@ -159,6 +159,12 @@ class ScaleMap:
             self.level = (max - min)/2
         else:
             print("Warning: only use min/max or window/level.")
+        if self.min == self.max:
+            print("Warning: min and max are equal. Setting min=0, max=1.")
+            self.min = 0
+            self.max = 1
+            self.window = 1
+            self.level = 0.5
 
     def mapper(self, x):
         out = np.zeros_like(x)

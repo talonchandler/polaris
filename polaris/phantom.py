@@ -70,7 +70,7 @@ def curve_phantom(curve, direction, kappa,
     
     return spang1
 
-def bead(orientation=[1,0,0], kappa=None, px=(32,32,32), vox_dim=(100,100,100)):
+def bead(orientation=[1,0,0], kappa=None, px=(32,32,32), vox_dim=(100,100,100), sphere=None):
     # orientation sets the axis of rotational symmetry
     # kappa = None: all along single axis
     # kappa = 0: angularly uniform
@@ -78,7 +78,7 @@ def bead(orientation=[1,0,0], kappa=None, px=(32,32,32), vox_dim=(100,100,100)):
     # kappa < 0: pancake
     dims = px + (15,)
     f = np.zeros(dims, dtype=np.float32)
-    spang1 = spang.Spang(f, vox_dim=vox_dim)
+    spang1 = spang.Spang(f, vox_dim=vox_dim, sphere=sphere)
     dot = np.dot(orientation, spang1.sphere.vertices.T)
     if kappa is None:
         spang1.f[px[0]//2, px[1]//2, px[2]//2, :] = util.xyz_sft(orientation, max_l=4)
