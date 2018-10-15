@@ -119,7 +119,7 @@ class Data:
             with tifffile.TiffWriter(filename, imagej=True) as tw:
                 tw.save(data[:,:,:,:,:,None]) # TZCYXS
 
-    def read_tiff(self, folder, roi=None, order=None, diSPIM_format=True, filenum=0):
+    def read_tiff(self, folder, roi=None, order=None, diSPIM_format=True, filenum=''):
         log.info('ROI: ' + str(roi))
         for i, view in enumerate(['SPIMA', 'SPIMB']):
             if diSPIM_format:
@@ -141,7 +141,7 @@ class Data:
                             jj = j
                         self.g[...,jj,i] = np.swapaxes(data, 0, 2) # XYZPV order
             else:
-                filename = folder + view + '/' + view + '_reg_' + str(filenum) + '.tif'
+                filename = folder + view + '/' + view + '_reg' + str(filenum) + '.tif'
                 with tifffile.TiffFile(filename) as tf:
                     log.info('Reading '+filename)
                     data = tf.asarray() # ZPYX order
