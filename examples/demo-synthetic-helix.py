@@ -32,7 +32,7 @@ def main():
     roi = [[20,20,20],[39,39,39]]
     # uncomment and try "interact=True" to interact with the phantom
     phant.visualize(folder+'phantom/', mask=mask, interact=False, video=True,
-                    n_frames=360, scale=3, viz_type=['ODF','Peak','Density'],
+                    n_frames=180, scale=3, viz_type=['ODF','Peak','Density'],
                     compress=True, mag=1, skip_n=2, roi=roi)
     # phant.visualize(folder+'phantom/', mask=mask, interact=False, video=True,
     #                 n_frames=36, scale=3, viz_type=['Density'],
@@ -50,6 +50,7 @@ def main():
     m = multi.MultiMicroscope(phant, data1, n_samp=1.33, lamb=525,
                               spang_coupling=True)
 
+    
     # Calculate system matrix
     m.calc_H()
 
@@ -69,8 +70,8 @@ def main():
     # Calculate reconstruction statistics and save
     mask = phant.density() > 0.1
     phant.visualize(folder+'phantom-recon/', mask=mask, interact=False, video=True,
-                    n_frames=36, viz_type=['ODF','Peak', 'Density'],
-                    tiff=False, skip_n=2, scale=3, roi=roi, mag=1)
+                    n_frames=180, viz_type=['ODF','Peak', 'Density'],
+                    skip_n=2, scale=3, roi=roi, mag=1)
     # phant.save_stats(folder+'phantom-recon/')
     phant.save_summary(folder+'phantom-recon.pdf', mask=mask)
     import pdb; pdb.set_trace()

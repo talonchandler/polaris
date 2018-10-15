@@ -82,6 +82,14 @@ def xyz2str(xyz):
             string += '+'+s[i]
         if element == -1:
             string += '-'+s[i]
+        if element == np.sqrt(3)/2:
+            string += '+\\frac{\sqrt{3}}{2}'+s[i]
+        if element == -np.sqrt(3)/2:
+            string += '-\\frac{\sqrt{3}}{2}'+s[i]
+        if element == 1/2:
+            string += '+\\frac{1}{2}'+s[i]
+        if element == -1/2:
+            string += '-\\frac{1}{2}'+s[i]
     if string[1] == '+' or string == '$-\hat{\mathbf{z}}':
         string = string[0] + string[2:]
     string += '$'
@@ -159,6 +167,12 @@ class ScaleMap:
             self.level = (max - min)/2
         else:
             print("Warning: only use min/max or window/level.")
+        if self.min == self.max:
+            print("Warning: min and max are equal. Setting min=0, max=1.")
+            self.min = 0
+            self.max = 1
+            self.window = 1
+            self.level = 0.5
 
     def mapper(self, x):
         out = np.zeros_like(x)

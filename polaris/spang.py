@@ -75,7 +75,7 @@ class Spang:
         return Di.astype(np.float32), principal.astype(np.float32)
         
     def save_summary(self, filename='out.pdf', density_filter=None, mag=4,
-                     mask=None, scale=1, keep_parallels=False, skip_n=1):
+                     mask=None, scale=1.0, keep_parallels=False, skip_n=1):
         log.info('Generating ' + filename)
         if density_filter is not None:
             density_mask = self.density() > density_filter
@@ -161,7 +161,7 @@ class Spang:
                                            axes=False, clip_neg=False, azimuth=0,
                                            elevation=0, scale=scale, mask=mask)
 
-                    viz.plot_images(['parallels/yz.png', 'parallels/xy.png', 'parallels/xz.png'],
+                    viz.plot_images(['parallels/yz.tif', 'parallels/xy.tif', 'parallels/xz.tif'],
                                     f, spec, row, col,
                                     col_labels=col_labels, row_labels=None,
                                     vmin=vmin, vmax=vmax, colormap=colormap,
@@ -213,11 +213,12 @@ class Spang:
         
     def visualize(self, out_path='out/', outer_box=True, axes=True,
                   clip_neg=False, azimuth=0, elevation=0, n_frames=1, mag=1,
-                  video=False, viz_type='ODF', mask=None, mask_roi=None, skip_n=1,
-                  skip_n_roi=1, scale=1, roi_scale=1, zoom_start=None,
-                  zoom_end=None, top_zoom=1, interact=False,
+                  video=False, viz_type='ODF', mask=None, mask_roi=None,
+                  skip_n=1, skip_n_roi=1, scale=1, roi_scale=1, zoom_start=1.0,
+                  zoom_end=1.0, top_zoom=1, interact=False,
                   save_parallels=False, my_cam=None, compress=True, roi=None,
-                  corner_text='', scalemap=None):
+                  corner_text='', scalemap=None, text_on=True,
+                  invert=False, flat=False, colormap='bwr', global_cm=True):
         log.info('Preparing to render ' + out_path)
 
         # Handle scalemap
@@ -227,8 +228,6 @@ class Spang:
         # Prepare output
         util.mkdir(out_path)
             
-
-        
         # Setup vtk renderers
         renWin = vtk.vtkRenderWindow()
         if not interact:
@@ -251,9 +250,14 @@ class Spang:
             line_color = np.array([0,0,0])
             line_bcolor = np.array([1,1,1])
         else:
-            bg_color = [0,0,0]
-            line_color = np.array([1,1,1])
-            line_bcolor = np.array([0,0,0])
+            if not invert:
+                bg_color = [0,0,0]
+                line_color = np.array([1,1,1])
+                line_bcolor = np.array([0,0,0])
+            else:
+                bg_color = [1,1,1]
+                line_color = np.array([0,0,0])
+                line_bcolor = np.array([1,1,1])
 
         # For each viz_type
         rens = []
@@ -273,6 +277,8 @@ class Spang:
                 # Mask
                 if mask is None:
                     mask = np.ones((self.X, self.Y, self.Z), dtype=np.bool)
+                if mask_roi is None:
+                    mask_roi = mask
 
                 # Main vs roi
                 if row == 0:
@@ -289,16 +295,25 @@ class Spang:
                     skip_mask[::skip_n_roi,::skip_n_roi,::skip_n_roi] = 1
                     my_mask = np.logical_and(roi_mask, skip_mask)
                     scale = roi_scale
-                    scalemap = roi_scalemap
+                    scalemap = scalemap
 
                 # Add visuals to renderer
                 if viz_type[col] == "ODF":
                     log.info('Rendering '+str(np.sum(my_mask)) + ' ODFs')
                     fodf_spheres = viz.odf_sparse(data, self.Binv, sphere=self.sphere,
                                                   scale=skip_n*scale*0.5, norm=False,
-                                                  colormap='bwr', mask=my_mask,
-                                                  global_cm=True, scalemap=scalemap)
+                                                  colormap=colormap, mask=my_mask,
+                                                  global_cm=global_cm, scalemap=scalemap,
+                                                  odf_sphere=False, flat=flat)
 
+                    ren.add(fodf_spheres)
+                elif viz_type[col] == "ODF Sphere":
+                    log.info('Rendering '+str(np.sum(my_mask)) + ' ODFs')
+                    fodf_spheres = viz.odf_sparse(data, self.Binv, sphere=self.sphere,
+                                                  scale=skip_n*scale*0.5, norm=False,
+                                                  colormap=colormap, mask=my_mask,
+                                                  global_cm=global_cm, scalemap=scalemap,
+                                                  odf_sphere=True, flat=flat)
                     ren.add(fodf_spheres)
                 elif viz_type[col] == "Ellipsoid":
                     log.info('Warning: scaling is not implemented for ellipsoids')                    
@@ -331,35 +346,31 @@ class Spang:
                 Z = np.float(data.shape[2])
                 
                 # Titles                
-                if row == 0:
+                if row == 0 and text_on:
                     viz.add_text(ren, viz_type[col], 0.5, 0.96, mag)
                     
                 # Scale bar
-                if col == cols - 1 and not save_parallels:
+                if col == cols - 1 and not save_parallels and text_on:
                     yscale = 1e-3*self.vox_dim[1]*data.shape[1]
                     yscale_label = '{:.2f}'.format(yscale) + ' um'
                     viz.add_text(ren, yscale_label, 0.5, 0.03, mag)
                     viz.draw_scale_bar(ren, X, Y, Z, line_color)
 
                 # Corner text
-                if row == rows - 1 and col == 0:
+                if row == rows - 1 and col == 0 and text_on:
                     viz.add_text(ren, corner_text, 0.03, 0.03, mag, ha='left')
 
                 # Draw boxes
                 Nmax = np.max([X, Y, Z])
                 if outer_box:
                     if row == 0:
-                        viz.draw_outer_box(ren, [[0,0,0],[X,Y,Z]], line_color)
+                        viz.draw_outer_box(ren, np.array([[0,0,0],[X,Y,Z]]) - 0.5, line_color)
                     if row == 1:
-                        viz.draw_outer_box(ren, [[0,0,0],[X,Y,Z]], [0,1,1])
-                else:
-                    ren.add(actor.line([np.array([[0,0,0],[Nmax,0,0]])], colors=line_bcolor, linewidth=1))
-                    ren.add(actor.line([np.array([[0,0,0],[0,Nmax,0]])], colors=line_bcolor, linewidth=1))
-                    ren.add(actor.line([np.array([[0,0,0],[0,0,Nmax]])], colors=line_bcolor, linewidth=1))
+                        viz.draw_outer_box(ren, np.array([[0,0,0],[X,Y,Z]]) - 0.5, [0,1,1])
 
                 # Add colored axes
                 if axes:
-                    viz.draw_axes(ren, [[0,0,0], [X,Y,Z]])
+                    viz.draw_axes(ren, np.array([[0,0,0], [X,Y,Z]]) - 0.5)
 
                 # Draw roi box
                 if row == 0 and roi is not None:
@@ -380,9 +391,9 @@ class Spang:
                 Rcam = Rcam_edge + Rcam_rad
                 if my_cam is None:
                     cam = ren.GetActiveCamera()
-                    cam.SetPosition((X//2 + Rcam, Y//2, Z//2))
+                    cam.SetPosition(((X-1)/2 + Rcam, (Y-1)/2, (Z-1)/2))
                     cam.SetViewUp((0, 0, 1))
-                    cam.SetFocalPoint((X//2, Y//2, Z//2))
+                    cam.SetFocalPoint(((X-1)/2, (Y-1)/2, (Z-1)/2))
                     #ren.reset_camera()
                 else:
                     ren.set_camera(*my_cam)
@@ -413,7 +424,7 @@ class Spang:
         if save_parallels:
             # Parallel rendering for summaries
             filenames = ['yz', 'xy', 'xz']
-            zooms = [zoom_start, 1.0, 1.0]
+            zooms = [zoom_start[0], 1.0, 1.0]
             azs = [90, -90, 0]
             els = [0, 0, 90]
             ren.projection(proj_type='parallel')
