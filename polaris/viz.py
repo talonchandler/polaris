@@ -82,7 +82,10 @@ def plot_parallels(raw_data, out_path='out/', outer_box=True, axes=True,
     ren.azimuth(azimuth)
     ren.elevation(elevation)
 
-    writer = vtk.vtkPNGWriter()
+    # writer = vtk.vtkPNGWriter()
+    writer = vtk.vtkTIFFWriter()
+    writer.SetCompressionToNoCompression()
+
     az = 0
 
     filenames = ['yz', 'xy', 'xz']
@@ -100,7 +103,7 @@ def plot_parallels(raw_data, out_path='out/', outer_box=True, axes=True,
         renderLarge.SetInput(ren)
         renderLarge.Update()
         writer.SetInputConnection(renderLarge.GetOutputPort())
-        writer.SetFileName(out_path + filenames[i] + '.png')
+        writer.SetFileName(out_path + filenames[i] + '.tif')
         writer.Write()
         
 def plot5d(filename, data, row_labels=None, col_labels=None, yscale_label=None,
@@ -135,7 +138,7 @@ def plot5d(filename, data, row_labels=None, col_labels=None, yscale_label=None,
                 plot_parallels(data[:,:,:,col,row], out_path='parallels/', outer_box=False,
                                    axes=False, clip_neg=False, azimuth=0,
                                    elevation=0)
-                plot_images(['parallels/yz.png', 'parallels/xy.png', 'parallels/xz.png'],
+                plot_images(['parallels/yz.tif', 'parallels/xy.tif', 'parallels/xz.tif'],
                                 f, spec, row, col,
                                 col_labels=col_labels, row_labels=row_labels,
                                 vmin=vmin, vmax=vmax, colormap=colormap,

@@ -59,7 +59,7 @@ class MultiMicroscope:
             x = pols[v,:,0]
             y = pols[v,:,1]
         # TODO: Move this to chcoeffs
-        out = np.outer(tf[0,:], np.ones(4)) + np.outer(tf[1,:], -2*x*y) + np.outer(tf[2,:], x**2 - y**2)
+        out = np.outer(tf[0,:], np.ones(pols.shape[1])) + np.outer(tf[1,:], -2*x*y) + np.outer(tf[2,:], x**2 - y**2)
 
         return out # return s x p
 
@@ -118,7 +118,7 @@ class MultiMicroscope:
         F = np.fft.rfftn(f, axes=(0,1,2))
         
         # Tensor multiplication
-        G = np.zeros(F.shape[0:3] + self.data.g.shape[3:], dtype=np.complex64)
+        G = np.zeros(F.shape[0:3] + (self.P,) + (self.V,), dtype=np.complex64)
         for x in tqdm(range(self.Hxy.shape[0])):
             for y in range(self.Hxy.shape[1]):
                 Hzsp = np.einsum('z,sp->zsp', self.Hz, self.Hxy[x,y,:,:])

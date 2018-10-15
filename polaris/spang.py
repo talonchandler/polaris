@@ -161,7 +161,7 @@ class Spang:
                                            axes=False, clip_neg=False, azimuth=0,
                                            elevation=0, scale=scale, mask=mask)
 
-                    viz.plot_images(['parallels/yz.png', 'parallels/xy.png', 'parallels/xz.png'],
+                    viz.plot_images(['parallels/yz.tif', 'parallels/xy.tif', 'parallels/xz.tif'],
                                     f, spec, row, col,
                                     col_labels=col_labels, row_labels=None,
                                     vmin=vmin, vmax=vmax, colormap=colormap,

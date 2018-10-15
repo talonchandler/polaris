@@ -23,8 +23,8 @@ class Data:
         self.X = g.shape[0]
         self.Y = g.shape[1]
         self.Z = g.shape[2]
-        self.P = g.shape[3]        
-        self.V = g.shape[4]
+        self.P = pols.shape[1]
+        self.V = pols.shape[0]
         self.vox_dim = vox_dim
         self.pols = pols
         self.pols_norm = pols/np.linalg.norm(pols, axis=2)[:,:,None] # V X P X 3
@@ -105,7 +105,7 @@ class Data:
                     os.makedirs(f)
 
             for i, view in enumerate(['SPIMA', 'SPIMB']):
-                for j in range(4):
+                for j in range(self.P):
                     filename = folder + view + '/' + view + '_reg_' + str(j) + '.tif'
                     data = self.g[...,j,i].astype(np.float32)
                     data = np.swapaxes(data, 0, 2)

@@ -82,6 +82,14 @@ def xyz2str(xyz):
             string += '+'+s[i]
         if element == -1:
             string += '-'+s[i]
+        if element == np.sqrt(3)/2:
+            string += '+\\frac{\sqrt{3}}{2}'+s[i]
+        if element == -np.sqrt(3)/2:
+            string += '-\\frac{\sqrt{3}}{2}'+s[i]
+        if element == 1/2:
+            string += '+\\frac{1}{2}'+s[i]
+        if element == -1/2:
+            string += '-\\frac{1}{2}'+s[i]
     if string[1] == '+' or string == '$-\hat{\mathbf{z}}':
         string = string[0] + string[2:]
     string += '$'
