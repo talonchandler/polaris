@@ -50,6 +50,7 @@ class Data:
 
     def apply_calibration_correction(self, epi_cal, ls_cal, order, lake_response):
         log.info('Applying calibration correction')
+
         epi_normed = epi_cal/np.mean(epi_cal, axis=-1)[:,None]
         ls_corrected = ls_cal/epi_normed
         cal_data = ls_corrected/np.mean(ls_corrected, axis=-1)[:,None]
@@ -141,7 +142,7 @@ class Data:
                             jj = j
                         self.g[...,jj,i] = np.swapaxes(data, 0, 2) # XYZPV order
             else:
-                filename = folder + view + '/' + view + '_reg' + str(filenum) + '.tif'
+                filename = folder + view + '/' + view + '_reg_' + str(filenum) + '.tif'
                 with tifffile.TiffFile(filename) as tf:
                     log.info('Reading '+filename)
                     data = tf.asarray() # ZPYX order
@@ -152,7 +153,7 @@ class Data:
                         self.g = np.zeros(datashape, dtype=np.float32)
                     if data.dtype == np.uint16: # Convert 
                         data = (data/np.iinfo(np.uint16).max).astype(np.float32)
-                    for j in range(4):
+                    for j in range(datashape[3]):
                         if order is not None:
                             jj = order[i][j]
                         else:

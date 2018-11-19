@@ -514,7 +514,7 @@ class SpangSeries:
         self.label = label
         self.vox_dim = vox_dim
 
-    def visualize(self, output, density_filter=0.1, mag=1, n_frames=1, hyperstack=None, **kwargs):
+    def visualize(self, output, density_filter=0.1, density_filter_roi=0.1, mag=1, n_frames=1, hyperstack=None, **kwargs):
         util.mkdir(output)
 
         # Generate visuals frame by frame
@@ -523,7 +523,8 @@ class SpangSeries:
             sp = Spang(vox_dim=self.vox_dim)
             sp.read_tiff(filename)
             mask = sp.density() > density_filter
-            sp.visualize(output+str(i).zfill(3)+'/', mask=mask, corner_text=self.label(i),
+            mask_roi = sp.density() > density_filter_roi
+            sp.visualize(output+str(i).zfill(3)+'/', mask=mask, mask_roi=mask_roi, corner_text=self.label(i),
                          n_frames=n_frames, mag=mag, **kwargs)
         
         # Generate uncompressed hyperstack from compressed files

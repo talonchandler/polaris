@@ -652,7 +652,7 @@ def draw_scale_bar(ren, X, Y, Z, line_color):
     # draw_unlit_line(ren, [np.array([[X,Y,-Z//40 + Z//60],[X,Y,-Z//40 - Z//60]])], line_color, lw=0.3, scale=scale)
     # draw_unlit_line(ren, [np.array([[X,0,-Z//40 + Z//60],[X,0,-Z//40 - Z//60]])], line_color, lw=0.3, scale=scale)
     
-def draw_axes(ren, roi, lw=0.3):
+def draw_axes(ren, roi, lw=0.5):
     X0, Y0, Z0 = roi[0]
     X1, Y1, Z1 = roi[1]
     Nmin = np.min([X1 - X0, Y1 - Y0, Z1 - Z0])
