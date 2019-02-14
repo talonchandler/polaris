@@ -217,8 +217,9 @@ class Spang:
                   skip_n=1, skip_n_roi=1, scale=1, roi_scale=1, zoom_start=1.0,
                   zoom_end=1.0, top_zoom=1, interact=False,
                   save_parallels=False, my_cam=None, compress=True, roi=None,
-                  corner_text='', scalemap=None, text_on=True,
-                  invert=False, flat=False, colormap='bwr', global_cm=True):
+                  corner_text='', scalemap=None, titles_on=True, scalebar_on=True,
+                  invert=False, flat=False, colormap='bwr', global_cm=True,
+                  camtilt=False, colors=None):
         log.info('Preparing to render ' + out_path)
 
         # Handle scalemap
@@ -252,7 +253,7 @@ class Spang:
         else:
             if not invert:
                 bg_color = [0,0,0]
-                line_color = np.array([1,1,1])
+                line_color = np.array([0.1,0.1,0.1])
                 line_bcolor = np.array([0,0,0])
             else:
                 bg_color = [1,1,1]
@@ -326,7 +327,7 @@ class Spang:
                 elif viz_type[col] == "Peak":
                     log.info('Rendering '+str(np.sum(my_mask)) + ' peaks')
                     fodf_peaks = viz.peak_slicer_sparse(data, self.Binv, self.sphere.vertices, 
-                                                        scale=skip_n*scale*0.5,
+                                                        scale=skip_n*scale*0.5, colors=colors,
                                                         mask=my_mask, scalemap=scalemap)
                     ren.add(fodf_peaks)
                 elif viz_type[col] == "Principal":
@@ -346,18 +347,18 @@ class Spang:
                 Z = np.float(data.shape[2])
                 
                 # Titles                
-                if row == 0 and text_on:
+                if row == 0 and titles_on:
                     viz.add_text(ren, viz_type[col], 0.5, 0.96, mag)
                     
                 # Scale bar
-                if col == cols - 1 and not save_parallels and text_on:
+                if col == cols - 1 and not save_parallels and scalebar_on:
                     yscale = 1e-3*self.vox_dim[1]*data.shape[1]
                     yscale_label = '{:.2f}'.format(yscale) + ' um'
                     viz.add_text(ren, yscale_label, 0.5, 0.03, mag)
-                    viz.draw_scale_bar(ren, X, Y, Z, line_color)
+                    viz.draw_scale_bar(ren, X, Y, Z, [1,1,1])
 
                 # Corner text
-                if row == rows - 1 and col == 0 and text_on:
+                if row == rows - 1 and col == 0 and titles_on:
                     viz.add_text(ren, corner_text, 0.03, 0.03, mag, ha='left')
 
                 # Draw boxes
@@ -391,8 +392,14 @@ class Spang:
                 Rcam = Rcam_edge + Rcam_rad
                 if my_cam is None:
                     cam = ren.GetActiveCamera()
-                    cam.SetPosition(((X-1)/2 + Rcam, (Y-1)/2, (Z-1)/2))
-                    cam.SetViewUp((0, 0, 1))
+                    if camtilt:
+                        cam.SetPosition(((X-1)/2, (Y-1)/2, (Z-1)/2 + Rcam))
+                        cam.SetViewUp((-1, 0, 1))
+                        viz.draw_unlit_line(ren, [np.array([[X//2,Y//2,+Z//2],[X//2,Y//2,Z]])], [1,1,1], lw=1, scale=1.0)
+                        viz.draw_unlit_line(ren, [np.array([[X//2,Y//2,+Z//2],[0,Y//2,Z//2]])], [1,1,1], lw=1, scale=1.0)
+                    else:
+                        cam.SetPosition(((X-1)/2 + Rcam, (Y-1)/2, (Z-1)/2))
+                        cam.SetViewUp((0, 0, 1))
                     cam.SetFocalPoint(((X-1)/2, (Y-1)/2, (Z-1)/2))
                     #ren.reset_camera()
                 else:
@@ -418,7 +425,7 @@ class Spang:
             writer.SetCompressionToNoCompression()
 
         # Execute renders
-        az = 0
+        az = 90
         naz = np.ceil(360/n_frames)
         log.info('Rendering ' + out_path)
         if save_parallels:
@@ -472,7 +479,7 @@ class Spang:
             fps = np.ceil(n_frames/12)
             subprocess.call(['ffmpeg', '-nostdin', '-y', '-framerate', str(fps),
                              '-loglevel', 'panic', '-i', out_path+'%03d'+'.tif',
-                             out_path[:-1]+'.avi'])
+                             out_path[:-1]+'.mp4'])
             # subprocess.call(['rm', '-r', out_path])
 
         return my_cam
