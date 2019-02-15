@@ -217,9 +217,9 @@ class Spang:
                   skip_n=1, skip_n_roi=1, scale=1, roi_scale=1, zoom_start=1.0,
                   zoom_end=1.0, top_zoom=1, interact=False,
                   save_parallels=False, my_cam=None, compress=True, roi=None,
-                  corner_text='', scalemap=None, titles_on=True, scalebar_on=True,
-                  invert=False, flat=False, colormap='bwr', global_cm=True,
-                  camtilt=False, colors=None):
+                  corner_text='', scalemap=None, titles_on=True,
+                  scalebar_on=True, invert=False, flat=False, colormap='bwr',
+                  global_cm=True, camtilt=False, colors=None):
         log.info('Preparing to render ' + out_path)
 
         # Handle scalemap
@@ -478,8 +478,9 @@ class Spang:
             log.info('Generating video from frames')
             fps = np.ceil(n_frames/12)
             subprocess.call(['ffmpeg', '-nostdin', '-y', '-framerate', str(fps),
-                             '-loglevel', 'panic', '-i', out_path+'%03d'+'.tif',
-                             out_path[:-1]+'.mp4'])
+                             '-loglevel', 'panic', '-i', out_path+'%03d'+'.png',
+                             '-pix_fmt', 'yuvj420p', '-vcodec', 'mjpeg',
+                             out_path[:-1]+'.avi'])
             # subprocess.call(['rm', '-r', out_path])
 
         return my_cam
