@@ -219,7 +219,7 @@ class Spang:
                   save_parallels=False, my_cam=None, compress=True, roi=None,
                   corner_text='', scalemap=None, titles_on=True,
                   scalebar_on=True, invert=False, flat=False, colormap='bwr',
-                  global_cm=True, camtilt=False, colors=None):
+                  global_cm=True, camtilt=False, axes_on=False, colors=None):
         log.info('Preparing to render ' + out_path)
 
         # Handle scalemap
@@ -395,8 +395,9 @@ class Spang:
                     if camtilt:
                         cam.SetPosition(((X-1)/2, (Y-1)/2, (Z-1)/2 + Rcam))
                         cam.SetViewUp((-1, 0, 1))
-                        viz.draw_unlit_line(ren, [np.array([[X//2,Y//2,+Z//2],[X//2,Y//2,Z]])], [1,1,1], lw=1, scale=1.0)
-                        viz.draw_unlit_line(ren, [np.array([[X//2,Y//2,+Z//2],[0,Y//2,Z//2]])], [1,1,1], lw=1, scale=1.0)
+                        if axes_on:
+                            viz.draw_unlit_line(ren, [np.array([[X//2,Y//2,+Z//2],[X//2,Y//2,Z]])], [1,1,1], lw=1, scale=1.0)
+                            viz.draw_unlit_line(ren, [np.array([[X//2,Y//2,+Z//2],[0,Y//2,Z//2]])], [1,1,1], lw=1, scale=1.0)
                     else:
                         cam.SetPosition(((X-1)/2 + Rcam, (Y-1)/2, (Z-1)/2))
                         cam.SetViewUp((0, 0, 1))

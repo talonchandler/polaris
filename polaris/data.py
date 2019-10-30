@@ -89,7 +89,7 @@ class Data:
         log.info('Saving '+filename)
         if np.min(self.g) < -1e-3:
             log.info('Warning: minimum data is ' + str(np.min(self.g)) + '. Truncating negative values in '+filename)
-
+            
         row_labels = 'Illumination axis = ' + np.apply_along_axis(util.xyz2str, 1, self.ill_optical_axes) + '\n Detection axis = ' + np.apply_along_axis(util.xyz2str, 1, self.det_optical_axes) + '\n NA = ' + util.f2str(self.det_nas)
         col_labels = 'Polarizer = ' + np.apply_along_axis(util.xyz2str, 2, self.pols)
         self.yscale = 1e-3*self.vox_dim[1]*self.g.shape[0]
@@ -120,10 +120,26 @@ class Data:
             with tifffile.TiffWriter(filename, imagej=True) as tw:
                 tw.save(data[:,:,:,:,:,None]) # TZCYXS
 
-    def read_tiff(self, folder, roi=None, order=None, diSPIM_format=True, filenum=''):
+    def read_tiff(self, folder, roi=None, order=None, format='diSPIM', tilts=['0', '1', '-1'], filenum=''):
         log.info('ROI: ' + str(roi))
-        for i, view in enumerate(['SPIMA', 'SPIMB']):
-            if diSPIM_format:
+        if format == 'diSPIM-tilt':
+            for i, view in enumerate(['SPIMA', 'SPIMB']):
+                for j, tilt in enumerate(tilts):
+                    filename = folder + view + '/' + view + '_Tilt_' + tilt + '.tif'
+                    with tifffile.TiffFile(filename) as tf:
+                        log.info('Reading '+filename)
+                        data = tf.asarray() # ZPYX order
+                        if roi is not None: # Crop
+                            data = data[roi[2][0]:roi[2][1], :, roi[1][0]:roi[1][1], roi[0][0]:roi[0][1]]
+                        if self.g.shape[0] != data.shape[3]: # Make g with correct shape
+                            datashape = (data.shape[3], data.shape[2], data.shape[0], len(tilts), 7, self.pols.shape[0])
+                            self.g = np.zeros(datashape, dtype=np.float32)
+                        if data.dtype == np.uint16: # Convert 
+                            data = (data/np.iinfo(np.uint16).max).astype(np.float32)
+                        self.g[:,:,:,j,:,i] = np.moveaxis(data, [3, 2, 0, 1], [0, 1, 2, 3]) # XYZPTV order
+            self.g = self.g.reshape((self.g.shape[0], self.g.shape[1], self.g.shape[2], self.g.shape[3]*self.g.shape[4], self.g.shape[5]))
+        elif format == 'diSPIM':
+            for i, view in enumerate(['SPIMA', 'SPIMB']):                
                 for j in range(4):
                     filename = folder + view + '/' + view + '_reg_' + str(j) + '.tif'
                     with tifffile.TiffFile(filename) as tf:
@@ -141,7 +157,8 @@ class Data:
                         else:
                             jj = j
                         self.g[...,jj,i] = np.swapaxes(data, 0, 2) # XYZPV order
-            else:
+        else:
+            for i, view in enumerate(['SPIMA', 'SPIMB']):                                
                 filename = folder + view + '/' + view + '_reg_' + str(filenum) + '.tif'
                 with tifffile.TiffFile(filename) as tf:
                     log.info('Reading '+filename)

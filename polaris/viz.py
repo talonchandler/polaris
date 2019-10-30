@@ -322,6 +322,7 @@ def _odf_slicer_mapper(odfsh, Binv, affine=None, mask=None, sphere=None,
     # Assemble faces
     for (k, center) in enumerate(ijk):
         all_faces.append(faces + k * xyz_vertices.shape[0])
+
     all_faces = np.concatenate(all_faces)
     all_faces = np.hstack((3 * np.ones((len(all_faces), 1)),
                            all_faces))
@@ -395,7 +396,7 @@ def peak_slicer_sparse(odfsh, Binv, vertices, mask=None, affine=None, scale=1,
             symm = np.vstack((-peak_dirs[i,:]*peak + xyz[i],
                               peak_dirs[i,:]*peak + xyz[i]))
             list_dirs.append(symm)
-    
+
     return actor.streamtube(list_dirs, colors=colors,
                             opacity=opacity, linewidth=linewidth*scale,
                             lod=lod, lod_points=lod_points,
