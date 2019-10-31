@@ -38,6 +38,19 @@ class Illuminator:
 
         return tf.TFCoeffs([n0, n_2, n2])
 
-    # No illumination spatioangular coupling -> h == H
-    def H(self): 
-        return self.h()
+    def H(self, pol=None):
+        if pol is None: # For normalization
+            cc = sh.SHCoeffs([1, 0, 0, -1/np.sqrt(5), 0, 0])/np.sqrt(4*np.pi)
+            if self.optical_axis == [1,0,0]: # x-illumination
+                cc = cc.rotate()
+            return cc
+        out = []
+        for j in range(6):
+            l, m = util.j2lm(j)
+            theta, phi = util.xyz2tp(*pol)
+            if l == 0:
+                cc = 1.0
+            else:
+                cc = 0.4
+            out.append(cc*util.spZnm(l, m, theta, phi))
+        return sh.SHCoeffs(out)

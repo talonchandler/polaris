@@ -54,6 +54,7 @@ class Data:
         epi_normed = epi_cal/np.mean(epi_cal, axis=-1)[:,None]
         ls_corrected = ls_cal/epi_normed
         cal_data = ls_corrected/np.mean(ls_corrected, axis=-1)[:,None]
+        import pdb; pdb.set_trace() 
         cal_data[0,:] = cal_data[0,order[0][:]] # reorder
         cal_data[1,:] = cal_data[1,order[1][:]] # reorder
         for p in range(self.P):

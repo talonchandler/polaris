@@ -23,19 +23,19 @@ class Microscope:
         self.n_len = self.h0.coeffs.shape[0]
         self.j_len = self.h0.coeffs.shape[1]
         self.hnorm = (self.ill.h()*self.det.h(0, 0, 0)).coeffs[0, 0]
-        self.Hnorm = (self.ill.H()*self.det.H(0, 0, 0)).coeffs[0, 0]
+        self.Hnorm = (self.ill.H()*self.det.H(0, 0, 0)).coeffs[0]
         self.color = color
         self.spang_coupling = spang_coupling
 
     def h(self, x, y, z):
         return self.ill.h()*self.det.h(x, y, z)/self.hnorm
-
-    def H(self, x, y, z):
+    
+    def H(self, x, y, z, pol):
         if self.spang_coupling:
-            return self.ill.H()*self.det.H(x, y, z)/self.Hnorm
+            return self.ill.H(pol)*self.det.H(x, y, z)/self.Hnorm
         else:
-            return self.ill.H()*self.det.H(0, 0, 0)/self.Hnorm
-
+            return self.ill.H(pol)*self.det.H(0, 0, 0)/self.Hnorm
+        
     def plot(self, func=h, filename='micro.pdf', n_px=2**6, plot_m=[-2, 0, 2],
              contours=True):
         print('Plotting: ' + filename)

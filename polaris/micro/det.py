@@ -79,8 +79,8 @@ class Detector:
             n2 = sh.SHCoeffs(n2).rotate().coeffs
 
         ax_weight = np.exp(-(z_ax**2)/(2*(self.sigma_ax**2)))
-        return tf.TFCoeffs([n0, n_2, n2])*ax_weight
-
+        return sh.SHCoeffs(n0)*ax_weight
+    
     # PSF helper functions
     def a1(self, r):
         if r == 0:

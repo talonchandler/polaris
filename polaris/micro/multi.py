@@ -49,19 +49,13 @@ class MultiMicroscope:
         self.sigma_ax = sigma_ax
         self.jmax = m[0].h(0, 0, 0).jmax
 
-    def calc_point_H(self, vx, vy, vz, v, pols):
-        tf = self.micros[v].H(vx,vy,vz).coeffs
-        # Take cft
-        if v == 0:
-            x = pols[v,:,2]
-            y = pols[v,:,1]
-        if v == 1:
-            x = pols[v,:,0]
-            y = pols[v,:,1]
-        # TODO: Move this to chcoeffs
-        out = np.outer(tf[0,:], np.ones(pols.shape[1])) + np.outer(tf[1,:], -2*x*y) + np.outer(tf[2,:], x**2 - y**2)
-
-        return out # return s x p
+    def calc_point_H(self, vx, vy, vz, v):
+        out = np.zeros((self.J, self.P))
+        for p in range(self.P):
+            pol = self.data.pols_norm[v,p,:]
+            tf = self.micros[v].H(vx,vy,vz,pol)
+            out[:,p] = tf.coeffs
+        return out # return j x p
 
     def calc_H(self):
         # Transverse transfer function
@@ -72,7 +66,7 @@ class MultiMicroscope:
         self.Hxy = np.zeros((dx.shape[0], dy.shape[0], self.J, self.P), dtype=np.float32)
         for x, nux in enumerate(tqdm(dx)):
             for y, nuy in enumerate(dy):
-                self.Hxy[x,y,:,:] = self.calc_point_H(nux, nuy, 0, 0, self.data.pols_norm)
+                self.Hxy[x,y,:,:] = self.calc_point_H(nux, nuy, 0, 0)
         self.Hxy = self.Hxy/np.max(np.abs(self.Hxy))
         if self.micros[0].spang_coupling:
             self.Hz = np.exp(-(dz**2)/(2*(self.sigma_ax**2)), dtype=np.float32)
@@ -86,18 +80,18 @@ class MultiMicroscope:
         self.Hyz = np.zeros((dy.shape[0], dz.shape[0], self.J, self.P), dtype=np.float32)
         for y, nuy in enumerate(tqdm(dy)):
             for z, nuz in enumerate(dz):
-                self.Hyz[y,z,:,:] = self.calc_point_H(0, nuy, nuz, 1, self.data.pols_norm)
+                self.Hyz[y,z,:,:] = self.calc_point_H(0, nuy, nuz, 1)
         self.Hyz = self.Hyz/np.max(np.abs(self.Hyz))
         if self.micros[0].spang_coupling:
             self.Hx = np.exp(-(dx**2)/(2*(self.sigma_ax**2)))
         else:
             self.Hx = np.ones(dx.shape)
-
-    def lake_response(self, data):
-        e0 = self.calc_point_H(0, 0, 0, 0, data.pols_norm)[0,:]
-        e1 = self.calc_point_H(0, 0, 0, 1, data.pols_norm)[0,:]
-        return np.vstack([e0, e1])
             
+    def lake_response(self, data):
+        e0 = self.calc_point_H(0, 0, 0, 0)[0,:]
+        e1 = self.calc_point_H(0, 0, 0, 1)[0,:]
+        return np.vstack([e0, e1])
+    
     def save_H(self, filename):
         np.savez(filename, Hxy=self.Hxy, Hyz=self.Hyz, Hx=self.Hx, Hz=self.Hz)
         
