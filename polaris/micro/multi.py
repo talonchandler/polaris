@@ -56,7 +56,7 @@ class MultiMicroscope:
             tf = self.micros[v].H(vx,vy,vz,pol)
             out[:,p] = tf.coeffs
         return out # return j x p
-
+    
     def calc_H(self):
         # Transverse transfer function
         log.info('Computing H for view 0')
@@ -64,9 +64,18 @@ class MultiMicroscope:
         dy = np.fft.rfftfreq(self.Y, d=self.data.vox_dim[1])*self.lamb/self.micros[0].det.na
         dz = np.fft.rfftfreq(self.Z, d=self.data.vox_dim[2])*self.lamb/self.micros[0].det.na
         self.Hxy = np.zeros((dx.shape[0], dy.shape[0], self.J, self.P), dtype=np.float32)
+
+        # Calc illumination once
+        sh_ills = []
+        for p in range(self.P):
+            pol = self.data.pols_norm[0,p,:]
+            sh_ills.append(self.micros[0].ill.H(pol))
+
+        # Calc detection and multiply
         for x, nux in enumerate(tqdm(dx)):
             for y, nuy in enumerate(dy):
-                self.Hxy[x,y,:,:] = self.calc_point_H(nux, nuy, 0, 0)
+                for p, sh_ill in enumerate(sh_ills):
+                    self.Hxy[x,y,:,p] = (sh_ill*self.micros[0].det.H(nux,nuy,0)).coeffs
         self.Hxy = self.Hxy/np.max(np.abs(self.Hxy))
         if self.micros[0].spang_coupling:
             self.Hz = np.exp(-(dz**2)/(2*(self.sigma_ax**2)), dtype=np.float32)
@@ -78,9 +87,18 @@ class MultiMicroscope:
         dy = np.fft.rfftfreq(self.Y, d=self.data.vox_dim[1])*self.lamb/self.micros[1].det.na
         dz = np.fft.rfftfreq(self.Z, d=self.data.vox_dim[2])*self.lamb/self.micros[1].det.na
         self.Hyz = np.zeros((dy.shape[0], dz.shape[0], self.J, self.P), dtype=np.float32)
+
+        # Calc illumination once
+        sh_ills = []
+        for p in range(self.P):
+            pol = self.data.pols_norm[1,p,:]
+            sh_ills.append(self.micros[1].ill.H(pol))
+
+        # Calc detection and multiply            
         for y, nuy in enumerate(tqdm(dy)):
             for z, nuz in enumerate(dz):
-                self.Hyz[y,z,:,:] = self.calc_point_H(0, nuy, nuz, 1)
+                for p, sh_ill in enumerate(sh_ills):
+                    self.Hyz[y,z,:,p] = (sh_ill*self.micros[1].det.H(0,nuy,nuz)).coeffs
         self.Hyz = self.Hyz/np.max(np.abs(self.Hyz))
         if self.micros[0].spang_coupling:
             self.Hx = np.exp(-(dx**2)/(2*(self.sigma_ax**2)))
