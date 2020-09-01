@@ -567,8 +567,10 @@ def _makeNd(array, ndim):
     new_shape = (1,) * (ndim - array.ndim) + array.shape
     return array.reshape(new_shape)
 
-def density_slicer(density, scalemap=util.ScaleMap()):
-
+def density_slicer(density, scalemap=util.ScaleMap(), ss=1):
+    from scipy import ndimage
+    density = ndimage.zoom(density, ss)
+    
     # Set opacity
     vol = np.interp(np.swapaxes(density, 0, 2), [scalemap.min, scalemap.max], [0, 255])
     vol = vol.astype('uint8')
@@ -582,11 +584,12 @@ def density_slicer(density, scalemap=util.ScaleMap()):
     dataImporter.SetNumberOfScalarComponents(1)
     dataImporter.SetDataExtent(0, X - 1, 0, Y - 1, 0, Z - 1)
     dataImporter.SetWholeExtent(0, X - 1, 0, Y - 1, 0, Z - 1)
+    dataImporter.SetDataSpacing(1/ss,1/ss,1/ss)
 
     # Create transfer mapping scalar value to opacity
     opacityTransferFunction = vtk.vtkPiecewiseFunction()
-    opacityTransferFunction.AddPoint(0, 0)
-    opacityTransferFunction.AddPoint(255, 1.0)
+    opacityTransferFunction.AddPoint(0, 0) # Previously 0.0
+    opacityTransferFunction.AddPoint(255, 0.9)
 
     # Create transfer mapping scalar value to color
     colorTransferFunction = vtk.vtkColorTransferFunction()
@@ -595,16 +598,16 @@ def density_slicer(density, scalemap=util.ScaleMap()):
 
     # The property describes how the data will look
     volumeProperty = vtk.vtkVolumeProperty()
-    volumeProperty.SetColor(colorTransferFunction)
+    volumeProperty.SetColor(colorTransferFunction) 
     volumeProperty.SetScalarOpacity(opacityTransferFunction)
     # volumeProperty.ShadeOn()
-    # volumeProperty.SetInterpolationTypeToLinear()
+    volumeProperty.SetInterpolationTypeToLinear()
 
     # The mapper / ray cast function know how to render the data
     volumeMapper = vtk.vtkGPUVolumeRayCastMapper()
     volumeMapper.SetBlendModeToMaximumIntensity()
-    volumeMapper.SetSampleDistance(0.1)
-    volumeMapper.SetAutoAdjustSampleDistances(0)
+    volumeMapper.SetSampleDistance(0.01)
+    # volumeMapper.SetAutoAdjustSampleDistances(0)
     volumeMapper.SetInputConnection(dataImporter.GetOutputPort())
 
     # The class vtkVolume is used to pair the preaviusly declared volume as well as the properties to be used when rendering that volume.
