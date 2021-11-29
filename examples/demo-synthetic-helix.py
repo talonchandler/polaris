@@ -38,8 +38,6 @@ def main():
     #                 n_frames=36, scale=3, viz_type=['Density'],
     #                 tiff=True, mag=4, skip_n=2, roi=None)
 
-    import pdb; pdb.set_trace() 
-                    
     # phant.save_stats(folder+'phantom/')
     phant.save_summary(folder+'phantom.pdf', mask=mask)
 
@@ -74,7 +72,6 @@ def main():
                     skip_n=2, scale=3, roi=roi, mag=1)
     # phant.save_stats(folder+'phantom-recon/')
     phant.save_summary(folder+'phantom-recon.pdf', mask=mask)
-    import pdb; pdb.set_trace()
 
 if __name__ == '__main__':
     main()

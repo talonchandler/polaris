@@ -1,4 +1,4 @@
-from scipy import misc
+import imageio
 from polaris import util
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -8,7 +8,7 @@ import numpy as np
 import vtk
 import os
 from dipy.viz import window, actor
-from dipy.viz.colormap import colormap_lookup_table, create_colormap
+from fury.colormap import colormap_lookup_table, create_colormap
 from dipy.utils.optpkg import optional_package
 numpy_support, have_ns, _ = optional_package('vtk.util.numpy_support')
 
@@ -25,7 +25,7 @@ def plot_parallels(raw_data, out_path='out/', outer_box=True, axes=True,
     raw_data = raw_data*mask
         
     # Render
-    ren = window.Renderer()
+    ren = window.Scene()
     ren.background([1,1,1])
 
     # Add visuals to renderer
@@ -165,7 +165,7 @@ def plot_images(images, f, spec, row, col, col_labels, row_labels, vmin, vmax,
                 if bar:
                     plot_colorbar(ax, spec, vmin, vmax, colormap, bar_label=bar_label)
                 else:
-                    im = misc.imread(os.path.join(os.path.dirname(__file__), '../assets/rgb.png'))
+                    im = imageio.imread(os.path.join(os.path.dirname(__file__), '../assets/rgb.png'))
                     bb = ax.get_position()
                     bb.y0 += 0.04
                     bb.y1 += 0.04
@@ -184,7 +184,7 @@ def plot_images(images, f, spec, row, col, col_labels, row_labels, vmin, vmax,
                     ax.annotate('$z$', xy=(0,0), xytext=(0,r+zs), xycoords='data', textcoords='data', va='center', ha='center', fontsize=12)
                     ax.annotate(bar_label, xy=(0,0), xytext=(0, -1.5), xycoords='data', textcoords='data', va='top', ha='center', fontsize=12)
             if image is not None:
-                im = misc.imread(image)
+                im = imageio.imread(image)
                 ax.imshow(im, interpolation='none', origin='upper', extent=[-24, 24, -24, 24], aspect=1)
                 ax.axis('off')
                 ax.get_xaxis().set_visible(False)
@@ -513,7 +513,7 @@ def _tensor_slicer_mapper(odfsh, affine=None, mask=None, sphere=None, scale=2.2,
     all_xyz2 = xyz_vertices.reshape(-1, xyz_vertices.shape[-1], order='F') # Reshape
     all_xyz_vtk = numpy_support.numpy_to_vtk(np.ascontiguousarray(all_xyz2), deep=True) # Convert to vtk
 
-    from dipy.viz.colormap import orient2rgb
+    from fury.colormap import orient2rgb
     scalar_colors2 = orient2rgb(pr2.reshape(-1, pr2.shape[-1])).reshape(pr2.shape)
     cols2 = np.zeros((scalar_colors2.shape[0],) + sphere.vertices.shape, dtype='f4')
     

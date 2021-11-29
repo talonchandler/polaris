@@ -5,7 +5,7 @@ from matplotlib import rc
 #rc('text', usetex=True)
 from polaris import viz, util
 import numpy as np
-from dipy.viz import window, actor, fvtk
+from dipy.viz import window, actor
 from dipy.data import get_sphere
 import vtk
 from tqdm import tqdm
@@ -267,7 +267,7 @@ class Spang:
         for row in range(rows):
             for col in range(cols):
                 # Render
-                ren = window.Renderer()
+                ren = window.Scene()
                 rens.append(ren)
                 ren.background(bg_color)
                 ren.SetViewport(col/cols,(rows - row - 1)/rows,(col+1)/cols,(rows - row)/rows)
