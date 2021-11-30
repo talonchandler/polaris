@@ -8,7 +8,7 @@ from matplotlib import rc
 #rc('text', usetex=True)
 from polaris import viz, util
 import numpy as np
-from dipy.viz import window, actor, fvtk
+from dipy.viz import window, actor
 from dipy.data import get_sphere
 import vtk
 from tqdm import tqdm
@@ -194,8 +194,8 @@ class Spang:
         log.info('Writing '+filename)
         with tifffile.TiffWriter(filename, imagej=True) as tif:
             if data.ndim == 4:
-                d = np.moveaxis(data, [2, 3, 1, 0], [0, 1, 2, 3])
-                tif.save(d[None,:,:,:,:]) # TZCYXS
+                dat = np.moveaxis(data, [2, 3, 1, 0], [0, 1, 2, 3])
+                tif.save(dat[None,:,:,:,:].astype(np.float32)) # TZCYXS
             elif data.ndim == 3:
                 d = np.moveaxis(data, [2, 1, 0], [0, 1, 2])
                 tif.save(d[None,:,None,:,:].astype(np.float32)) # TZCYXS
@@ -277,7 +277,7 @@ class Spang:
         for row in range(rows):
             for col in range(cols):
                 # Render
-                ren = window.Renderer()
+                ren = window.Scene()
                 rens.append(ren)
                 if viz_type[col] is 'Density':
                     ren.background([0,0,0])

@@ -56,7 +56,7 @@ Create an anaconda environment for polaris. This will take ~5 minutes.
 Activate the polaris environment. You will need to activate this environment 
 every time you want to run polaris. 
 
-    conda activate polaris
+    conda activate polaris2021
 
 Install polaris locally so that you can access it from anywhere. 
 
@@ -70,3 +70,4 @@ Run the example scripts.
     cd examples
     python demo-synthetic-helix.py
     python demo-data-guv.py
+
