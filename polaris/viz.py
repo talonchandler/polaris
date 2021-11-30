@@ -239,7 +239,7 @@ def draw_annotations(ax, row, col, row_labels, col_labels, pos=(-0.05, 1.05, 0.5
 def odf_sparse(odfsh, Binv, affine=None, mask=None, sphere=None, scale=2.2,
                norm=True, radial_scale=True, opacity=1., colormap='plasma',
                global_cm=False, scalemap=util.ScaleMap(), odf_sphere=False,
-               flat=False):
+               flat=False, normalize=True):
     if mask is None:
         mask = np.ones(odfsh.shape[:3], dtype=np.bool)
     else:
@@ -265,7 +265,8 @@ def odf_sparse(odfsh, Binv, affine=None, mask=None, sphere=None, scale=2.2,
                                              colormap=colormap,
                                              global_cm=global_cm,
                                              scalemap=scalemap,
-                                             odf_sphere=odf_sphere)
+                                             odf_sphere=odf_sphere,
+                                             normalize=normalize)
             self.SetMapper(self.mapper)
 
         def display(self, x=None, y=None, z=None):
@@ -290,7 +291,7 @@ def odf_sparse(odfsh, Binv, affine=None, mask=None, sphere=None, scale=2.2,
 def _odf_slicer_mapper(odfsh, Binv, affine=None, mask=None, sphere=None,
                        scale=2.2, norm=True, radial_scale=True, opacity=1.,
                        colormap='plasma', global_cm=False,
-                       scalemap=util.ScaleMap(), odf_sphere=False):
+                       scalemap=util.ScaleMap(), odf_sphere=False, normalize=True):
     if mask is None:
         mask = np.ones(odfs.shape[:3])
 
@@ -315,7 +316,11 @@ def _odf_slicer_mapper(odfsh, Binv, affine=None, mask=None, sphere=None,
         masked_radii = np.einsum('vj,pj->vp', np.ones_like(Binv.T), masked_sh_scaled) # Radii
     else:
         masked_radii = radii
-    xyz_vertices = np.einsum('ij,ik->ikj', vertices, masked_radii)*scale/np.max(masked_radii) + ijk # Vertices
+    if normalize:
+        xyz_vertices = np.einsum('ij,ik->ikj', vertices, masked_radii)*scale/np.max(masked_radii) + ijk # Vertices
+    else:
+        xyz_vertices = np.einsum('ij,ik->ikj', vertices, masked_radii)*scale + ijk # Vertices
+    
     all_xyz = xyz_vertices.reshape(-1, xyz_vertices.shape[-1], order='F') # Reshape
     all_xyz_vtk = numpy_support.numpy_to_vtk(all_xyz, deep=True) # Convert to vtk
 
@@ -380,7 +385,7 @@ def _odf_slicer_mapper(odfsh, Binv, affine=None, mask=None, sphere=None,
 def peak_slicer_sparse(odfsh, Binv, vertices, mask=None, affine=None, scale=1,
                        colors=None, opacity=1., linewidth=0.1, lod=False,
                        lod_points=10 ** 4, lod_points_size=30,
-                       scalemap=util.ScaleMap()):
+                       scalemap=util.ScaleMap(), normalize=True):
 
     xyz = np.ascontiguousarray(np.array(np.nonzero(mask)).T)
     masked_sh = odfsh[mask] # Assemble masked sh
@@ -389,7 +394,10 @@ def peak_slicer_sparse(odfsh, Binv, vertices, mask=None, affine=None, scale=1,
     index = np.argmax(masked_radii, axis=0)
     peak_dirs = vertices[index]
     peak_values = np.amax(masked_radii, axis=0)
-    peak_values = peak_values*scale/np.max(peak_values)
+    if normalize:
+        peak_values = peak_values*scale/np.max(peak_values)
+    else:
+        peak_values = peak_values*scale
     list_dirs = []
     for (i, peak) in enumerate(peak_values):
         if peak > 0:
@@ -397,8 +405,17 @@ def peak_slicer_sparse(odfsh, Binv, vertices, mask=None, affine=None, scale=1,
                               peak_dirs[i,:]*peak + xyz[i]))
             list_dirs.append(symm)
 
-    return actor.streamtube(list_dirs, colors=colors,
-                            opacity=opacity, linewidth=linewidth*scale,
+    # CUSTOM COLORS
+    def orient2rgb(v):
+        M = np.array([[1/np.sqrt(2),0,1/np.sqrt(2)],[0,1,0],[-1/np.sqrt(2),0,1/np.sqrt(2)]])
+        vv = np.dot(M, v)
+        return np.abs(vv/np.linalg.norm(vv))
+
+    col_list = [orient2rgb(streamline[-1] - streamline[0]) for streamline in list_dirs]
+    cols_arr = np.vstack(col_list)
+
+    return actor.streamtube(list_dirs, colors=cols_arr,
+                            opacity=opacity, linewidth=linewidth*scale, # multiply linewidth for narrower lines
                             lod=lod, lod_points=lod_points,
                             lod_points_size=lod_points_size)
 
@@ -621,13 +638,47 @@ def density_slicer(density, scalemap=util.ScaleMap(), ss=1):
     volume.SetProperty(volumeProperty)
     return volume
 
-def draw_unlit_line(ren, coords, colors, lw=0.5, scale=1.0, streamtube=True):
-    if streamtube:
-        act = actor.streamtube(coords, colors=colors, linewidth=scale*lw, lod=False)
-    else:
-        act = actor.line(coords, colors=colors, linewidth=scale*lw)
-    act.GetProperty().SetLighting(0)
-    ren.AddActor(act)
+# def draw_unlit_line(ren, coords, colors, lw=0.5, scale=1.0, streamtube=True):
+#     if streamtube:
+#         act = actor.streamtube(coords, colors=colors, linewidth=scale*lw, lod=False)
+#     else:
+#         act = actor.line(coords, colors=colors, linewidth=scale*lw)
+#     act.GetProperty().SetLighting(0)
+#     act.GetProperty().SetOpacity(1)
+#     ren.AddActor(act)
+def draw_unlit_line(ren, coords, colors, lw=0.5, scale=1.0):
+    for i in range(len(coords[0]) - 1):
+        # Create a line
+        lineSource = vtk.vtkLineSource()
+        lineSource.SetPoint1(coords[0][i,:])
+        lineSource.SetPoint2(coords[0][i+1,:])
+
+        # Setup actor and mapper
+        lineMapper = vtk.vtkPolyDataMapper()
+        lineMapper.SetInputConnection(lineSource.GetOutputPort())
+
+        # Create tube filter
+        tubeFilter=vtk.vtkTubeFilter()
+        tubeFilter.SetInputConnection(lineSource.GetOutputPort())
+        tubeFilter.SetRadius(lw)
+        tubeFilter.SetNumberOfSides(50)
+        tubeFilter.Update()
+
+        # Setup actor and mapper
+        tubeMapper = vtk.vtkPolyDataMapper()
+        tubeMapper.SetInputConnection(tubeFilter.GetOutputPort())
+
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputConnection(lineSource.GetOutputPort())
+        actor = vtk.vtkActor()
+        actor.SetMapper(tubeMapper)
+        # actor.GetProperty().SetLineWidth(100*lw)
+        actor.GetProperty().SetColor(colors[i])
+        actor.GetProperty().SetLighting(0)
+
+        actor.GetProperty().SetLighting(0)
+        actor.GetProperty().SetOpacity(1)
+        ren.AddActor(actor)
 
 def draw_outer_box(ren, roi, line_color, lw=0.3):
     X0, Y0, Z0 = roi[0]
@@ -647,24 +698,45 @@ def draw_outer_box(ren, roi, line_color, lw=0.3):
              [np.array([[X0,Y0,Z1],[X1,Y0,Z1]], dtype=np.float)],
              [np.array([[X0,Y0,Z1],[X0,Y1,Z1]], dtype=np.float)]]
     for line in lines:
-        draw_unlit_line(ren, line, line_color, lw=lw, scale=scale)
+        draw_unlit_line(ren, line, [line_color], lw=lw, scale=scale)
 
 def draw_scale_bar(ren, X, Y, Z, line_color):
     Nmax = np.max([X,Y,Z])
     scale = Nmax/63.0    
-    draw_unlit_line(ren, [np.array([[X,0,-Z//40],[X,Y,-Z//40]])], line_color, lw=0.3, scale=scale)
+    draw_unlit_line(ren, [np.array([[X,0,-Z//40],[X,Y,-Z//40]])], [line_color], lw=0.3, scale=scale)
     # draw_unlit_line(ren, [np.array([[X,Y,-Z//40 + Z//60],[X,Y,-Z//40 - Z//60]])], line_color, lw=0.3, scale=scale)
     # draw_unlit_line(ren, [np.array([[X,0,-Z//40 + Z//60],[X,0,-Z//40 - Z//60]])], line_color, lw=0.3, scale=scale)
     
-def draw_axes(ren, roi, lw=0.5):
+def draw_axes(ren, roi, lw=0.75):
     X0, Y0, Z0 = roi[0]
     X1, Y1, Z1 = roi[1]
     Nmin = np.min([X1 - X0, Y1 - Y0, Z1 - Z0])
     Nmax = np.max([X1 - X0, Y1 - Y0, Z1 - Z0])
     scale = Nmax/63.0
-    draw_unlit_line(ren, [np.array([[X0,Y0,Z0],[X0+Nmin/5,Y0,Z0]])], np.array([1,0,0]), lw=lw, scale=scale)
-    draw_unlit_line(ren, [np.array([[X0,Y0,Z0],[X0,Y0+Nmin/5,Z0]])], np.array([0,1,0]), lw=lw, scale=scale)
-    draw_unlit_line(ren, [np.array([[X0,Y0,Z0],[X0,Y0,Z0+Nmin/5]])], np.array([0,0,1]), lw=lw, scale=scale)
+    draw_unlit_line(ren, [np.array([[X0,Y0,Z0],[X0+Nmax/8,Y0,Z0]])], [np.array([1,0,0])], lw=lw, scale=scale)
+    draw_unlit_line(ren, [np.array([[X0,Y0,Z0],[X0,Y0+Nmax/8,Z0]])], [np.array([0,1,0])], lw=lw, scale=scale)
+    draw_unlit_line(ren, [np.array([[X0,Y0,Z0],[X0,Y0,Z0+Nmax/8]])], [np.array([0,0,1])], lw=lw, scale=scale)
+
+def draw_single_arrow(ren, pos, direction, color=[1,1,1]):
+    arrow = vtk.vtkArrowSource()
+    arrow.SetTipResolution(50)
+    arrow.SetShaftResolution(50)
+
+    arrowm = vtk.vtkPolyDataMapper()
+    arrowm.SetInputConnection(arrow.GetOutputPort())
+    arrowa = vtk.vtkActor()
+    arrowa.SetMapper(arrowm)
+    arrowa.GetProperty().SetColor(color)
+    arrowa.SetScale(np.linalg.norm(direction))
+
+    tp = util.xyz2tp(*direction)
+    arrowa.RotateWXYZ(-90, 0, 1, 0) # Align with Z axis
+    arrowa.RotateWXYZ(np.rad2deg(tp[0]), 0, 1, 0)
+    arrowa.RotateWXYZ(np.rad2deg(tp[1]), 0, 0, 1)
+    arrowa.SetPosition(*pos)
+
+    arrowa.GetProperty().SetLighting(0)
+    ren.AddActor(arrowa)
 
 def add_text(ren, text, x, y, mag, va='center', ha='center'):
     textProperty = vtk.vtkTextProperty()

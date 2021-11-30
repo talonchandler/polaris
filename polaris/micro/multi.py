@@ -105,7 +105,7 @@ class MultiMicroscope:
         else:
             self.Hx = np.ones(dx.shape)
             
-    def lake_response(self, data):
+    def lake_response(self):
         e0 = self.calc_point_H(0, 0, 0, 0)[0,:]
         e1 = self.calc_point_H(0, 0, 0, 1)[0,:]
         return np.vstack([e0, e1])

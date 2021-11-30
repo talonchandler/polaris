@@ -1,4 +1,7 @@
 import subprocess
+import matplotlib
+matplotlib.rcParams['mathtext.fontset'] = 'cm'
+matplotlib.rc('font', family='serif', serif='CMU Serif')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib import rc
@@ -41,6 +44,8 @@ class Spang:
 
         self.vox_dim = vox_dim
         self.sphere = sphere
+        self.sphere = sphere.subdivide()
+
         self.N = len(self.sphere.theta)
         self.calc_B()
         
@@ -53,8 +58,8 @@ class Spang:
         self.B = B
         self.Binv = np.linalg.pinv(self.B, rcond=1e-15)
 
-    def density(self, normalized=True):
-        if normalized:
+    def density(self, norm=True):
+        if norm:
             return self.f[...,0]/np.max(self.f[...,0])
         else:
             return self.f[...,0]
@@ -219,7 +224,11 @@ class Spang:
                   save_parallels=False, my_cam=None, compress=True, roi=None,
                   corner_text='', scalemap=None, titles_on=True,
                   scalebar_on=True, invert=False, flat=False, colormap='bwr',
-                  global_cm=True, camtilt=False, axes_on=False, colors=None):
+                  global_cm=True, camtilt=False, axes_on=False, colors=None,
+                  arrows=None, arrow_color=np.array([0,0,0]), linewidth=0.1,
+                  mark_slices=None, z_shift=0, profiles=[], markers=[],
+                  marker_colors=[], marker_scale=1, normalize_glyphs=True,
+                  gamma=1, density_max=1):
         log.info('Preparing to render ' + out_path)
 
         # Handle scalemap
@@ -231,11 +240,12 @@ class Spang:
             
         # Setup vtk renderers
         renWin = vtk.vtkRenderWindow()
+        
         if not interact:
             renWin.SetOffScreenRendering(1)
         if isinstance(viz_type, str):
             viz_type = [viz_type]
-
+            
         # Rows and columns
         cols = len(viz_type)
         if roi is None:
@@ -243,7 +253,7 @@ class Spang:
         else:
             rows = 2
             
-        renWin.SetSize(500*mag*cols, 500*mag*rows)
+        renWin.SetSize(np.int(500*mag*cols), np.int(500*mag*rows))
 
         # Select background color
         if save_parallels:
@@ -253,7 +263,7 @@ class Spang:
         else:
             if not invert:
                 bg_color = [0,0,0]
-                line_color = np.array([0.1,0.1,0.1])
+                line_color = np.array([1,1,1])
                 line_bcolor = np.array([0,0,0])
             else:
                 bg_color = [1,1,1]
@@ -269,7 +279,11 @@ class Spang:
                 # Render
                 ren = window.Renderer()
                 rens.append(ren)
-                ren.background(bg_color)
+                if viz_type[col] is 'Density':
+                    ren.background([0,0,0])
+                    line_color = np.array([1,1,1])                    
+                else:
+                    ren.background(bg_color)
                 ren.SetViewport(col/cols,(rows - row - 1)/rows,(col+1)/cols,(rows - row)/rows)
                 renWin.AddRenderer(ren)
                 iren = vtk.vtkRenderWindowInteractor()
@@ -289,6 +303,8 @@ class Spang:
                     my_mask = np.logical_and(mask, skip_mask)
                     scale = scale
                     scalemap = scalemap
+                    if np.sum(my_mask) == 0:
+                        my_mask[0,0,0] = True
                 else:
                     data = self.f[roi[0][0]:roi[1][0], roi[0][1]:roi[1][1], roi[0][2]:roi[1][2], :]
                     roi_mask = mask_roi[roi[0][0]:roi[1][0], roi[0][1]:roi[1][1], roi[0][2]:roi[1][2]]
@@ -300,15 +316,17 @@ class Spang:
 
                 # Add visuals to renderer
                 if viz_type[col] == "ODF":
+                    renWin.SetMultiSamples(4) 
                     log.info('Rendering '+str(np.sum(my_mask)) + ' ODFs')
                     fodf_spheres = viz.odf_sparse(data, self.Binv, sphere=self.sphere,
                                                   scale=skip_n*scale*0.5, norm=False,
                                                   colormap=colormap, mask=my_mask,
                                                   global_cm=global_cm, scalemap=scalemap,
-                                                  odf_sphere=False, flat=flat)
+                                                  odf_sphere=False, flat=flat, normalize=normalize_glyphs)
 
                     ren.add(fodf_spheres)
                 elif viz_type[col] == "ODF Sphere":
+                    renWin.SetMultiSamples(4)                     
                     log.info('Rendering '+str(np.sum(my_mask)) + ' ODFs')
                     fodf_spheres = viz.odf_sparse(data, self.Binv, sphere=self.sphere,
                                                   scale=skip_n*scale*0.5, norm=False,
@@ -317,6 +335,7 @@ class Spang:
                                                   odf_sphere=True, flat=flat)
                     ren.add(fodf_spheres)
                 elif viz_type[col] == "Ellipsoid":
+                    renWin.SetMultiSamples(4)                     
                     log.info('Warning: scaling is not implemented for ellipsoids')                    
                     log.info('Rendering '+str(np.sum(my_mask)) + ' ellipsoids')
                     fodf_peaks = viz.tensor_slicer_sparse(data,
@@ -325,10 +344,17 @@ class Spang:
                                                           mask=my_mask)
                     ren.add(fodf_peaks)
                 elif viz_type[col] == "Peak":
+                    renWin.SetMultiSamples(4)                     
                     log.info('Rendering '+str(np.sum(my_mask)) + ' peaks')
                     fodf_peaks = viz.peak_slicer_sparse(data, self.Binv, self.sphere.vertices, 
-                                                        scale=skip_n*scale*0.5, colors=colors,
-                                                        mask=my_mask, scalemap=scalemap)
+                                                        linewidth=linewidth, scale=skip_n*scale*0.5, colors=colors,
+                                                        mask=my_mask, scalemap=scalemap, normalize=normalize_glyphs)
+                    fodf_peaks.GetProperty().LightingOn()
+                    fodf_peaks.GetProperty().SetDiffuse(0.4) # Doesn't work (VTK bug I think)
+                    fodf_peaks.GetProperty().SetAmbient(0.15)
+                    fodf_peaks.GetProperty().SetSpecular(0)
+                    fodf_peaks.GetProperty().SetSpecularPower(0)
+
                     ren.add(fodf_peaks)
                 elif viz_type[col] == "Principal":
                     log.info('Warning: scaling is not implemented for principals')
@@ -338,13 +364,17 @@ class Spang:
                                                              mask=my_mask)
                     ren.add(fodf_peaks)
                 elif viz_type[col] == "Density":
+                    renWin.SetMultiSamples(0) # Must be zero for smooth
+                    renWin.SetAAFrames(4) # Slow antialiasing for volume renders
                     log.info('Rendering density')
-                    volume = viz.density_slicer(data[...,0], scalemap)
+                    gamma_corr = np.where(data[...,0]>0, data[...,0]**gamma, data[...,0])
+                    scalemap.max = density_max*scalemap.max**gamma
+                    volume = viz.density_slicer(gamma_corr, scalemap)
                     ren.add(volume)
 
                 X = np.float(data.shape[0])
                 Y = np.float(data.shape[1])
-                Z = np.float(data.shape[2])
+                Z = np.float(data.shape[2]) - z_shift
                 
                 # Titles                
                 if row == 0 and titles_on:
@@ -353,7 +383,7 @@ class Spang:
                 # Scale bar
                 if col == cols - 1 and not save_parallels and scalebar_on:
                     yscale = 1e-3*self.vox_dim[1]*data.shape[1]
-                    yscale_label = '{:.2f}'.format(yscale) + ' um'
+                    yscale_label = '{:.2g}'.format(yscale) + ' um'
                     viz.add_text(ren, yscale_label, 0.5, 0.03, mag)
                     viz.draw_scale_bar(ren, X, Y, Z, [1,1,1])
 
@@ -373,12 +403,85 @@ class Spang:
                 if axes:
                     viz.draw_axes(ren, np.array([[0,0,0], [X,Y,Z]]) - 0.5)
 
+                # Add custom arrows
+                if arrows is not None:
+                    for i in range(arrows.shape[0]):
+                        viz.draw_single_arrow(ren, arrows[i,0,:], arrows[i,1,:], color=arrow_color)
+                        viz.draw_unlit_line(ren, [np.array([arrows[i,0,:],[X/2,Y/2,Z/2]])], [arrow_color], lw=0.3, scale=1.0)
+
                 # Draw roi box
                 if row == 0 and roi is not None:
                     maxROI = np.max([roi[1][0] - roi[0][0], roi[1][1] - roi[0][1], roi[1][2] - roi[0][2]])
                     maxXYZ = np.max([self.X, self.Y, self.Z])
                     viz.draw_outer_box(ren, roi, [0,1,1], lw=0.3*maxXYZ/maxROI)
                     viz.draw_axes(ren, roi, lw=0.3*maxXYZ/maxROI)
+                    
+
+                # Draw marked slices
+                if mark_slices is not None:
+                    for slicen in mark_slices:
+                        md = np.max((X, Z))
+                        frac = slicen/data.shape[1]
+                        rr = 0.83*md
+                        t1 = 0
+                        t2 = np.pi/2 
+                        t3 = np.pi
+                        t4 = 3*np.pi/2
+                        points = [np.array([[X/2+rr*np.cos(t1),frac*Y,Z/2+rr*np.sin(t1)],
+                                            [X/2+rr*np.cos(t2),frac*Y,Z/2+rr*np.sin(t2)],
+                                            [X/2+rr*np.cos(t3),frac*Y,Z/2+rr*np.sin(t3)],
+                                            [X/2+rr*np.cos(t4),frac*Y,Z/2+rr*np.sin(t4)],
+                                            [X/2+rr*np.cos(t1),frac*Y,Z/2+rr*np.sin(t1)],
+                                            [X/2+rr*np.cos(t2),frac*Y,Z/2+rr*np.sin(t2)]])]
+                        viz.draw_unlit_line(ren, points, 6*[line_color+0.6], lw=0.3, scale=1.0)
+
+                # Draw markers
+                for i, marker in enumerate(markers):
+                    # Draw sphere
+                    source = vtk.vtkSphereSource()
+                    source.SetCenter(marker)
+                    source.SetRadius(marker_scale)
+                    source.SetThetaResolution(30)
+                    source.SetPhiResolution(30)
+
+                    # mapper
+                    mapper = vtk.vtkPolyDataMapper()
+                    mapper.SetInputConnection(source.GetOutputPort())
+
+                    # actor
+                    actor = vtk.vtkActor()
+                    actor.SetMapper(mapper)
+                    actor.GetProperty().SetColor(marker_colors[i,:])
+                    actor.GetProperty().SetLighting(0)
+                    ren.AddActor(actor)
+                        
+                # Draw profile lines
+                colors = np.array([[1,0,0],[0,1,0],[0,0,1]])
+
+                for i, profile in enumerate(profiles):
+                    import pdb; pdb.set_trace() 
+                    n_seg = profile.shape[0]
+                    viz.draw_unlit_line(ren, [profile], n_seg*[colors[i,:]], lw=0.5, scale=1.0)
+
+                    # Draw sphere
+                    source = vtk.vtkSphereSource()
+                    source.SetCenter(profile[0])
+                    source.SetRadius(1)
+                    source.SetThetaResolution(30)
+                    source.SetPhiResolution(30)
+
+                    # mapper
+                    mapper = vtk.vtkPolyDataMapper()
+                    mapper.SetInputConnection(source.GetOutputPort())
+
+                    # actor
+                    actor = vtk.vtkActor()
+                    actor.SetMapper(mapper)
+                    # actor.GetProperty().SetColor(colors[i,:])
+                    actor.GetProperty().SetLighting(0)
+
+                    # assign actor to the renderer
+                    ren.AddActor(actor)
 
                 # Setup cameras
                 Rmax = np.linalg.norm([Z/2, X/2, Y/2])
@@ -396,8 +499,8 @@ class Spang:
                         cam.SetPosition(((X-1)/2, (Y-1)/2, (Z-1)/2 + Rcam))
                         cam.SetViewUp((-1, 0, 1))
                         if axes_on:
-                            viz.draw_unlit_line(ren, [np.array([[X//2,Y//2,+Z//2],[X//2,Y//2,Z]])], [1,1,1], lw=1, scale=1.0)
-                            viz.draw_unlit_line(ren, [np.array([[X//2,Y//2,+Z//2],[0,Y//2,Z//2]])], [1,1,1], lw=1, scale=1.0)
+                            max_dim = np.max((X, Z))
+                            viz.draw_unlit_line(ren, [np.array([[(X- max_dim)/2,Y/2,Z/2],[X/2,Y/2,+Z/2],[X/2,Y/2,(Z + max_dim)/2]])], 3*[line_color], lw=max_dim/250, scale=1.0)
                     else:
                         cam.SetPosition(((X-1)/2 + Rcam, (Y-1)/2, (Z-1)/2))
                         cam.SetViewUp((0, 0, 1))
@@ -419,7 +522,7 @@ class Spang:
                     else:
                         zoom_start.append(1.3)
                         zoom_end.append(1.3)
-        
+
         # Setup writer
         writer = vtk.vtkTIFFWriter()
         if not compress:
@@ -458,6 +561,7 @@ class Spang:
                     ren.zoom(1 + ((zoom_end[j] - zoom_start[j])/n_frames))
                     ren.azimuth(az)
                     ren.reset_clipping_range()
+
                 renderLarge = vtk.vtkRenderLargeImage()
                 renderLarge.SetMagnification(1)
                 renderLarge.SetInput(ren)
@@ -485,27 +589,37 @@ class Spang:
             # subprocess.call(['rm', '-r', out_path])
 
         return my_cam
-    
-    # In progress
-    # def visualize_difference(self, spang, filename='out.pdf'):
-    #     import pdb; pdb.set_trace()
-    #     # Take sft
-    #     base_sh = np.
-        
-    #     radii = np.einsum('vj,pj->vp', self.Binv.T, sh) # Radii
-    #     index = np.argmax(masked_radii, axis=0)
-    #     peak_dirs = vertices[index]
 
-    #     # Find peak
+    def vis_profiles(self, filename, profilesi, dx=0.13):
+        from scipy.interpolate import interpn
 
-    #     # Print both peaks
-    #     ptr = np.round(pt, 3)
-    #     ptr2 = np.round(pt2, 3)
-    #     if np.dot(ptr, [1,1,1]) > 0:
-    #         if np.dot(ptr2, [1,1,1]) < 0:
-    #             ptr2 = -ptr2
-    #         print('myline('+str(ptr[0])+','+str(ptr[1])+','+str(ptr[2])+','+
-    #               str(ptr2[0])+','+str(ptr2[1])+','+str(ptr2[2])+');')
+        out = []
+        for profilei in profilesi:
+            grid = (np.arange(self.X), np.arange(self.Y), np.arange(self.Z))
+            out.append(interpn(grid, self.f[...,0], profilei))
+
+        # Normalize            
+        out = np.array(out)
+        out = out/np.max(out)
+
+        f, ax = plt.subplots(1, 1, figsize=(1.5,1.5))
+        ax.set_xlabel('Position along profile ($\mu$m)')
+        ax.set_ylabel('Density (AU)')
+        ax.set_ylim([0,1])
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+
+        for i, profilei in enumerate(profilesi):
+            # Calculate x positions
+            xpos = np.zeros(out.shape[-1])
+            xpos[1:] = np.linalg.norm(profilei[1:,:] - profilei[0:-1,:], axis=-1)
+            xpos = np.cumsum(xpos)*dx
+            
+            c = np.zeros(3)
+            c[i] = 1
+            ax.plot(xpos, out[i,:], '-', c=c, clip_on=False)
+            ax.plot(0, out[i,0], 'o', c=c, ms=5-.5*i, clip_on=False)
+        plt.savefig(filename, bbox_inches='tight')
 
 class SpangSeries:
     """
