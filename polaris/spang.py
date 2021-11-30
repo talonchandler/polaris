@@ -189,8 +189,8 @@ class Spang:
         log.info('Writing '+filename)
         with tifffile.TiffWriter(filename, imagej=True) as tif:
             if data.ndim == 4:
-                d = np.moveaxis(data, [2, 3, 1, 0], [0, 1, 2, 3])
-                tif.save(d[None,:,:,:,:]) # TZCYXS
+                dat = np.moveaxis(data, [2, 3, 1, 0], [0, 1, 2, 3])
+                tif.save(dat[None,:,:,:,:].astype(np.float32)) # TZCYXS
             elif data.ndim == 3:
                 d = np.moveaxis(data, [2, 1, 0], [0, 1, 2])
                 tif.save(d[None,:,None,:,:].astype(np.float32)) # TZCYXS

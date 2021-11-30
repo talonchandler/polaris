@@ -193,9 +193,9 @@ class MultiMicroscope:
 
         log.info('Applying pseudoinverse operator')
         import multiprocessing as mp
-        pool = mp.Pool(processes=mp.cpu_count())
+        pool = mp.Pool(processes=1)#mp.cpu_count())
         args = []
-        #import pdb; pdb.set_trace()
+
         for z in range(self.Hz.shape[0]):
             args.append((z, G2[:,:,z,:], self.Hxy, self.Hyz[:,z,:,:], self.Hx, self.Hz, self.X, self.Y, self.J, self.P, self.V, eta, xstart, xend, ystart, yend))
         result = list(tqdm(pool.imap(compute_pinv, args), total=len(args)))

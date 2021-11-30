@@ -120,9 +120,61 @@ class Data:
             with tifffile.TiffWriter(filename, imagej=True) as tw:
                 tw.save(data[:,:,:,:,:,None]) # TZCYXS
 
-    def read_tiff(self, folder, roi=None, order=None, format='diSPIM', tilts=['0', '1', '-1'], filenum=''):
+    def read_tiff(self, folder, roi=None, order=None, format='diSPIM',
+                  tilts=['0', '1', '-1'], filenum='', bkg_perc=10):
         log.info('ROI: ' + str(roi))
-        if format == 'diSPIM-tilt':
+        if format == 'diSPIM-tilt-fast2':
+            for i, view in enumerate(['SPIMA', 'SPIMB']):
+                filename = folder + view + '/' + view + '_'+str(filenum)+'.tif'
+                with tifffile.TiffFile(filename) as tf:
+                    import time
+                    start = time.time()
+                    log.info('Reading '+filename)
+                    data = tf.asarray() # ZPYX order
+                    data = np.moveaxis(data, [1,0,2,3], [0,1,2,3])
+                    if roi is not None: # Crop
+                        data = data[:, roi[2][0]:roi[2][1], roi[1][0]:roi[1][1], roi[0][0]:roi[0][1]]
+                    if self.g.shape[0] != data.shape[3]: # Make g with correct shape
+                        datashape = (data.shape[3], data.shape[2], data.shape[1], 3, 2)
+                        self.g = np.zeros(datashape, dtype=np.float32)
+                    perc = np.percentile(data, bkg_perc)
+                    print('Removing background: '+str(int(perc))) # In uint16 units
+                    if data.dtype == np.uint16: # Convert 
+                        data = (data/np.iinfo(np.uint16).max).astype(np.float32)
+                    data -= np.percentile(data, bkg_perc) # in floats to avoid overflow
+                    log.info('Moving '+filename)
+                    self.g[:,:,:,:,i] = np.moveaxis(data, [3, 2, 1, 0], [0, 1, 2, 3]) # XYZPV order
+                    del data
+
+                    end = time.time()
+                    print('File I/0 took '+str(np.round(end - start, 2))+' seconds.')
+        
+        elif format == 'diSPIM-tilt-fast':
+            for i, view in enumerate(['SPIMA', 'SPIMB']):
+                filename = folder + view + '/' + view + '_0.tif'
+                with tifffile.TiffFile(filename) as tf:
+                    import time
+                    start = time.time()
+                    log.info('Reading '+filename)
+                    data = tf.asarray() # ZPYX order
+                    data = data.reshape((3, data.shape[0]//3, data.shape[1], data.shape[2]))
+                    data = np.moveaxis(data, [1,0,2,3], [0,1,2,3])
+                    if roi is not None: # Crop
+                        data = data[roi[2][0]:roi[2][1], :, roi[1][0]:roi[1][1], roi[0][0]:roi[0][1]]
+                    if self.g.shape[0] != data.shape[3]: # Make g with correct shape
+                        datashape = (data.shape[3], data.shape[2], data.shape[0], 3, self.pols.shape[0])
+                        self.g = np.zeros(datashape, dtype=np.float32)
+                    if data.dtype == np.uint16: # Convert 
+                        data = (data/np.iinfo(np.uint16).max).astype(np.float32)
+                    log.info('Moving '+filename)
+                    self.g[:,:,:,:,i] = np.moveaxis(data, [3, 2, 0, 1], [0, 1, 2, 3]) # XYZPTV order
+                    del data
+
+                    end = time.time()
+                    print(end - start)
+                    print('File I/0 took '+str(np.round(end - start, 2))+' seconds.')
+        
+        elif format == 'diSPIM-tilt':
             for i, view in enumerate(['SPIMA', 'SPIMB']):
                 for j, tilt in enumerate(tilts):
                     filename = folder + view + '/' + view + '_Tilt_' + tilt + '.tif'
