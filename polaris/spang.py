@@ -365,7 +365,7 @@ class Spang:
                     ren.add(fodf_peaks)
                 elif viz_type[col] == "Density":
                     renWin.SetMultiSamples(0) # Must be zero for smooth
-                    renWin.SetAAFrames(4) # Slow antialiasing for volume renders
+                    # renWin.SetAAFrames(4) # Slow antialiasing for volume renders
                     log.info('Rendering density')
                     gamma_corr = np.where(data[...,0]>0, data[...,0]**gamma, data[...,0])
                     scalemap.max = density_max*scalemap.max**gamma
