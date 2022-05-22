@@ -2,6 +2,7 @@ import imageio
 from polaris import util
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from matplotlib.colors import LogNorm
 from matplotlib import rc
 #rc('text', usetex=True)
 import numpy as np
@@ -765,3 +766,84 @@ def add_text(ren, text, x, y, mag, va='center', ha='center'):
     textactor.SetMapper(textmapper)
     textactor.SetPosition(500*mag*x, 500*mag*y)
     ren.AddActor(textactor)
+
+def plot_den_gfa_histogram(density, gfa, filename):
+    ## Plot GFA-density histogram
+    hist, xedges, yedges = np.histogram2d(density, gfa, bins=np.linspace(0,1,num=51))
+
+    f = plt.figure(figsize=(4.5,4))
+    ax = f.add_axes([0.17, 0.02, 0.72, 0.79])
+    axcolor = f.add_axes([0.90, 0.02, 0.03, 0.79])
+
+    # ax.imshow(hist, vmin=0, vmax=np.max(hist), cmap='gray', extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]], interpolation=None, origin='lower')
+    hist[hist == 0] = 0.01
+    im = ax.imshow(hist, norm=LogNorm(vmin=0.1, vmax=np.max(hist)), cmap='jet', extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]], interpolation=None, origin='lower')
+
+    t = 10**np.array([0, 1, 2, 3, 4, 5, 6, 7])
+    f.colorbar(im, cax=axcolor, ticks=t, format='$%.f$')
+
+    ax.set_xlabel('GFA')
+    ax.set_ylabel('Density (normalized)')
+    # ax.grid(color=[0.9,0.9,0.9], lw=0.2, which='both')
+    ax.annotate('\# Voxels', xy=(1,1), xytext=(1.12, 1.05), textcoords='axes fraction', xycoords='axes fraction', ha='center', va='center', rotation=0)
+
+    util.mkdir(filename)
+    plt.savefig(filename, bbox_inches='tight', dpi=300)
+    plt.close()    
+
+def plot_histogram(data, filename, bin_n=26, color=[1,0,0], ymax=5000, min_line=None, max_line=None):
+    f, ax = plt.subplots(1, 1, figsize=(4, 1.5))
+    
+    ## Plot GFA-density histogram
+    ax.hist(data, bins=np.linspace(0,1,num=bin_n), color=color)
+
+    if min_line is not None:
+        ax.plot([min_line, min_line], [0, ymax], '--k')
+    if max_line is not None:
+        ax.plot([max_line, max_line], [0, ymax], '--k')
+        
+    ax.set_xlim([0,1])
+    ax.set_ylim([0,ymax])    
+    ax.set_xlabel('GFA')
+    ax.set_ylabel('\# Voxels')
+
+    util.mkdir(filename)
+    plt.savefig(filename, bbox_inches='tight', dpi=300)
+    plt.close()
+
+def plot_histogram_list(hist_list, filename, bin_n=30, color=[1,0,0],
+                        ymax=20000, yspacing=750, xlabel='GFA'):
+    f, ax = plt.subplots(1, 1, figsize=(4, 8))
+    
+    ## Plot list of histograms appropriately spaced
+    for i, hist in enumerate(hist_list):
+        line = ax.hist(hist, bins=np.linspace(0,1,num=bin_n), histtype='step', bottom=yspacing*i)
+        line[-1][0].set_clip_on(False)
+
+    # Set labels
+    label_pos = np.arange(0,ymax,yspacing)
+    ax.set_yticks(label_pos)
+    labels = np.shape(label_pos)[0]*['']
+    labels[0] = '0'
+    labels[1] = str(yspacing)
+    ax.set_yticklabels(labels)
+                
+    ax.set_xlim([0,1])
+    ax.set_ylim([0,ymax])    
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel('\# Voxels')
+    ax.yaxis.set_label_coords(-0.175,0.0)
+
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['left'].set_position(('outward', 10))
+    ax.spines['bottom'].set_position(('outward', 10))
+
+    all_gfa = np.concatenate(hist_list)
+    if all_gfa.size: # if not empty
+        ax.annotate('$\mu$ = '+'{:.2f}'.format(np.mean(all_gfa)), xy=(1,1), xytext=(0.9, 1.0), textcoords='axes fraction', xycoords='axes fraction', ha='right', va='center', rotation=0)
+        ax.annotate('$\sigma$ = '+'{:.2f}'.format(np.std(all_gfa)), xy=(1,1), xytext=(0.9, 0.98), textcoords='axes fraction', xycoords='axes fraction', ha='right', va='center', rotation=0)    
+
+    util.mkdir(filename)
+    plt.savefig(filename, bbox_inches='tight', dpi=300)
+    plt.close()
