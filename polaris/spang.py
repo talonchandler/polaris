@@ -349,11 +349,11 @@ class Spang:
                     fodf_peaks = viz.peak_slicer_sparse(data, self.Binv, self.sphere.vertices, 
                                                         linewidth=linewidth, scale=skip_n*scale*0.5, colors=colors,
                                                         mask=my_mask, scalemap=scalemap, normalize=normalize_glyphs)
-                    fodf_peaks.GetProperty().LightingOn()
-                    fodf_peaks.GetProperty().SetDiffuse(0.4) # Doesn't work (VTK bug I think)
-                    fodf_peaks.GetProperty().SetAmbient(0.15)
-                    fodf_peaks.GetProperty().SetSpecular(0)
-                    fodf_peaks.GetProperty().SetSpecularPower(0)
+                    # fodf_peaks.GetProperty().LightingOn()
+                    # fodf_peaks.GetProperty().SetDiffuse(0.4) # Doesn't work (VTK bug I think)
+                    # fodf_peaks.GetProperty().SetAmbient(0.15)
+                    # fodf_peaks.GetProperty().SetSpecular(0)
+                    # fodf_peaks.GetProperty().SetSpecularPower(0)
 
                     ren.add(fodf_peaks)
                 elif viz_type[col] == "Principal":
