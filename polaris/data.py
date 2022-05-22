@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 from polaris import util, viz, spang
 import numpy as np
 import os
@@ -106,7 +107,7 @@ class Data:
                     os.makedirs(f)
 
             for i, view in enumerate(['SPIMA', 'SPIMB']):
-                for j in range(self.P):
+                for j in range(self.g.shape[3]):
                     filename = folder + view + '/' + view + '_reg_' + str(j) + '.tif'
                     data = self.g[...,j,i].astype(np.float32)
                     data = np.swapaxes(data, 0, 2)
@@ -250,7 +251,7 @@ class Data:
                             jj = j
                         self.g[...,jj,i] = np.swapaxes(data, 0, 2) # XYZPV order
         else:
-            for i, view in enumerate(['SPIMA', 'SPIMB']):                                
+            for i, view in enumerate(['SPIMA', 'SPIMB']):
                 filename = folder + view + '/' + view + '_reg_' + str(filenum) + '.tif'
                 with tifffile.TiffFile(filename) as tf:
                     log.info('Reading '+filename)
@@ -268,3 +269,73 @@ class Data:
                         else:
                             jj = j
                         self.g[...,jj,i] = np.swapaxes(data[:,j,:,:], 0, 2) # XYZPV order
+
+    def read_calibration(self, folder, XY_range=15):
+        log.info('XY_range: ' + str(XY_range))
+        self.g = np.zeros((2*XY_range, 2*XY_range, 30, 21, 2), dtype=np.float32)
+        for i, view in enumerate(['SPIMA', 'SPIMB']):
+            for j, tilt in enumerate(['0', '1', '-1']):
+                filename = folder + view + '/' + view + '_Tilt_' + tilt + '_0.tif'
+                with tifffile.TiffFile(filename) as tf:
+                    import time
+                    start = time.time()
+                    log.info('Reading '+filename)
+                    data = tf.asarray() # ZYX order
+                    data = np.swapaxes(data, 0, 2) # XYZ
+                    data = data.reshape(data.shape[0:2] + (7, 30)) # XYPZ
+
+                    log.info('Moving and cropping '+filename)
+                    X_mid = int(data.shape[0]/2)
+                    Y_mid = int(data.shape[0]/2)
+                    self.g[:,:,:,7*j:7*(j+1),i] = np.swapaxes(data, 2, 3)[X_mid-XY_range:X_mid+XY_range, Y_mid-XY_range:Y_mid+XY_range,...] # XYZPV
+
+                    
+    def plot_calibration(self, out='out.pdf'): # TODO CLEAN UP
+        f, axs = plt.subplots(1, 2, figsize=(10, 4))
+
+        colors = ['g', 'b', 'r']
+        labels = ['Tilt 0', 'Tilt 1', 'Tilt -1 ']
+
+        for j in range(2): # Views
+            for k in range(3): # Tilts
+                ax = axs[j]
+
+                x0 = np.linspace(0,180,1000)
+                x0t = np.array(np.deg2rad(x0))
+                x1 = [0,45,60,90,120,135,180]
+                x1t = np.array(np.deg2rad(x1))
+
+                data_subset = self.g[...,7*k:7*(k+1),j]
+                means = np.mean(data_subset, axis=(0,1,2))
+                stds = np.std(data_subset, axis=(0,1,2))
+                y = means # means
+
+                # Least squares fit
+                A = np.zeros((len(x1t), 3))
+                A[:,0] = 1
+                A[:,1] = np.cos(2*x1t)
+                A[:,2] = np.sin(2*x1t)
+                abc = np.linalg.lstsq(A, y, rcond=None)[0]
+
+                def abc2theta(abc, theta):
+                    return abc[0] + abc[1]*np.cos(2*theta) + abc[2]*np.sin(2*theta)
+                y_lst = np.array([abc2theta(abc, np.deg2rad(xx)) for xx in x0])
+
+                ax.errorbar(x1, y, yerr=stds, fmt='o'+colors[k], label=labels[k]) # Plot dots
+                ax.plot(x0, y_lst, '-'+colors[k])
+
+                print('Pol offset (deg): ' + str(np.round(x0[np.argmax(y_lst)], 2)))
+
+            # Labels
+            ax.set_xlabel('Excitation polarization $\\hat{\\mathbf{p}}$ (degrees)')
+            ax.set_ylabel('Counts')
+            ax.set_xlim([-10,190])
+            ax.set_ylim([0.8*np.min(np.mean(self.g, axis=(0,1,2))),
+                         1.2*np.max(np.mean(self.g, axis=(0,1,2)))])
+            ax.xaxis.set_ticks([0, 45, 90, 135, 180])
+            ax.legend(frameon=False)
+
+        axs[0].annotate('SPIMA', xy=(0,0), xytext=(0.5, 1.1), xycoords='axes fraction', textcoords='axes fraction', ha='center', va='center')
+        axs[1].annotate('SPIMB', xy=(0,0), xytext=(0.5, 1.1), xycoords='axes fraction', textcoords='axes fraction', ha='center', va='center')
+        
+        f.savefig(out, bbox_inches='tight')
