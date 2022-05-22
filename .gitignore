@@ -3,7 +3,9 @@
 
 # Python
 *.pyc
+*egg-info*
 
 # Results
 *.log
+log.txt
 examples/*/*
