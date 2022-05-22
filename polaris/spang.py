@@ -456,10 +456,9 @@ class Spang:
                     ren.AddActor(actor)
                         
                 # Draw profile lines
-                colors = np.array([[1,0,0],[0,1,0],[0,0,1]])
+                colors = np.array([[1,0,0],[0,1,0],[0,0,1],[1,1,0],[0,1,1]])
 
                 for i, profile in enumerate(profiles):
-                    import pdb; pdb.set_trace() 
                     n_seg = profile.shape[0]
                     viz.draw_unlit_line(ren, [profile], n_seg*[colors[i,:]], lw=0.5, scale=1.0)
 
@@ -590,35 +589,84 @@ class Spang:
 
         return my_cam
 
-    def vis_profiles(self, filename, profilesi, dx=0.13):
+    def vis_profiles(self, filename, profilesi, dx=0.13, prof_type='density'):
         from scipy.interpolate import interpn
 
         out = []
+        xpos_out = []
         for profilei in profilesi:
             grid = (np.arange(self.X), np.arange(self.Y), np.arange(self.Z))
-            out.append(interpn(grid, self.f[...,0], profilei))
+            N  = profilei.shape[0] 
+            diffs = profilei[1:N] - profilei[0:N-1] 
+            dirs = diffs/np.linalg.norm(diffs, axis=1, keepdims=True)
+            if prof_type == 'density':
+                out.append(interpn(grid, self.f[...,0], profilei))
+                ylabel = 'Normalized density'
+                ylim = [0,1]
+                # Calculate x positions
+                xpos = np.zeros(N) # N
+                xpos[1:] = np.linalg.norm(profilei[1:,:] - profilei[0:-1,:], axis=-1)
+                xpos = np.cumsum(xpos)*dx
+                
+            elif prof_type == 'gfa':
+                out.append(interpn(grid, self.gfa(), profilei))
+                ylabel = 'GFA'
+                ylim = [0,1]
+                # Calculate x positions
+                xpos = np.zeros(N) # N 
+                xpos[1:] = np.linalg.norm(profilei[1:,:] - profilei[0:-1,:], axis=-1)
+                xpos = np.cumsum(xpos)*dx
+                
+            elif prof_type == 'order1':
+                sft = np.zeros((N-1, 5))
+                for n in range(dirs.shape[0]):
+                    sft[n,:] = util.xyz_sft(dirs[n,:], max_l=2)[1:]
+                coeffs = interpn(grid, self.f, profilei) 
+                density = coeffs[:N-1,0] # f_2m
+                ell2 = coeffs[:N-1,1:6] # f_2m
+                ell2_norm = ell2/density[:, np.newaxis]
+                out.append(np.einsum('ij,ij->i', sft, ell2_norm)*np.sqrt(4*np.pi/5)) # OO
+                ylabel = 'Normalized Order Parameter'
+                ylim = [-0.5,1]
+                # Calculate x positions
+                xpos = np.zeros((N-1,)) # 
+                xpos[1:] = np.linalg.norm(profilei[1:-1,:] - profilei[0:-2,:], axis=-1)
+                xpos = np.cumsum(xpos)*dx
+            elif prof_type == 'order2':
+                sft = np.zeros((N-1, 5))
+                for n in range(dirs.shape[0]):
+                    sft[n,:] = util.xyz_sft(dirs[n,:], max_l=2)[1:]
+                coeffs = interpn(grid, self.f, profilei) 
+                density = coeffs[:N-1,0] # f_2m
+                ell2 = coeffs[:N-1,1:6] # f_2m
+                out.append(np.einsum('ij,ij->i', sft, ell2)*np.sqrt(4*np.pi/5)) # OO
+                ylabel = 'Unnormalized Order Parameter'
+                ylim = [-1.1*np.max(np.concatenate(out)), 1.1*np.max(np.concatenate(out))]
+                # Calculate x positions
+                xpos = np.zeros((N-1,)) # 
+                xpos[1:] = np.linalg.norm(profilei[1:-1,:] - profilei[0:-2,:], axis=-1)
+                xpos = np.cumsum(xpos)*dx
 
-        # Normalize            
-        out = np.array(out)
-        out = out/np.max(out)
+            xpos_out.append(xpos)
+
+        # Normalize
+        if prof_type == 'density':
+            out_all = np.concatenate(out)
+            max_out = np.max(out_all)
+        else:
+            max_out = 1
 
         f, ax = plt.subplots(1, 1, figsize=(1.5,1.5))
         ax.set_xlabel('Position along profile ($\mu$m)')
-        ax.set_ylabel('Density (AU)')
-        ax.set_ylim([0,1])
+        ax.set_ylabel(ylabel)
+        ax.set_ylim(ylim)
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
 
+        c = np.array([[1,0,0],[0,1,0],[0,0,1],[1,1,0],[0,1,1]])
         for i, profilei in enumerate(profilesi):
-            # Calculate x positions
-            xpos = np.zeros(out.shape[-1])
-            xpos[1:] = np.linalg.norm(profilei[1:,:] - profilei[0:-1,:], axis=-1)
-            xpos = np.cumsum(xpos)*dx
-            
-            c = np.zeros(3)
-            c[i] = 1
-            ax.plot(xpos, out[i,:], '-', c=c, clip_on=False)
-            ax.plot(0, out[i,0], 'o', c=c, ms=5-.5*i, clip_on=False)
+            ax.plot(xpos_out[i], out[i]/max_out, '-', c=c[i,:], clip_on=False)
+            ax.plot(0, out[i][0]/max_out, 'o', c=c[i,:], ms=5-.5*i, clip_on=False)
         plt.savefig(filename, bbox_inches='tight')
 
 class SpangSeries:
