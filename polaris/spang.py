@@ -279,7 +279,7 @@ class Spang:
                 # Render
                 ren = window.Scene()
                 rens.append(ren)
-                if viz_type[col] is 'Density':
+                if viz_type[col] == 'Density':
                     ren.background([0,0,0])
                     line_color = np.array([1,1,1])                    
                 else:
