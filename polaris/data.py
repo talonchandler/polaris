@@ -350,3 +350,20 @@ class Data:
 
         return np.mean(offsets)
 
+    def plot_data_means(self, out='mean.pdf'):
+        f, ax = plt.subplots(1, 1, figsize=(4, 4))
+
+        view = ['A', 'B']
+        pol = ['1', '2', '3']        
+        
+        for j in range(2): # Views
+            for k in range(3): # Tilts
+                means = np.mean(self.g, axis=(0,1))
+                ax.plot(means[:,k,j], alpha=1, label=view[j]+pol[k])
+
+            # Labels
+            ax.set_xlabel('z slice')
+            ax.set_ylabel('Mean intensity in slice (AU)')
+            ax.legend(frameon=False)
+
+        f.savefig(out, bbox_inches='tight')
