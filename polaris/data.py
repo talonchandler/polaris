@@ -164,10 +164,10 @@ class Data:
                     start = time.time()
                     log.info('Reading '+filename)
                     data = tf.asarray() # ZPYX order
-                    data = np.moveaxis(data, [1,0,2,3], [0,1,2,3])
+                    data = np.moveaxis(data, [1,0,2,3], [0,1,2,3]) # PZYX
                     if roi is not None: # Crop
                         data = data[:, roi[2][0]:roi[2][1], roi[1][0]:roi[1][1], roi[0][0]:roi[0][1]]
-                    if self.g.shape[0] != data.shape[3]: # Make g with correct shape
+                    if self.g.shape[0] != data.shape[3] and i == 0: # Make g with correct shape
                         datashape = (data.shape[3], data.shape[2], data.shape[1], 3, 2)
                         self.g = np.zeros(datashape, dtype=np.float32)
                     perc = np.percentile(data, bkg_perc)
@@ -175,7 +175,7 @@ class Data:
                     if data.dtype == np.uint16: # Convert 
                         data = (data/np.iinfo(np.uint16).max).astype(np.float32)
                     data -= np.percentile(data, bkg_perc) # in floats to avoid overflow
-                    log.info('Moving '+filename)
+                    log.info('Swapping axes...')
                     self.g[:,:,:,:,i] = np.moveaxis(data, [3, 2, 1, 0], [0, 1, 2, 3]) # XYZPV order
                     del data
 
@@ -290,12 +290,13 @@ class Data:
                     self.g[:,:,:,7*j:7*(j+1),i] = np.swapaxes(data, 2, 3)[X_mid-XY_range:X_mid+XY_range, Y_mid-XY_range:Y_mid+XY_range,...] # XYZPV
 
                     
-    def plot_calibration(self, out='out.pdf'): # TODO CLEAN UP
+    def plot_calibration_fit(self, out='fit.pdf'):
         f, axs = plt.subplots(1, 2, figsize=(10, 4))
 
         colors = ['g', 'b', 'r']
         labels = ['Tilt 0', 'Tilt 1', 'Tilt -1 ']
 
+        offsets = []
         for j in range(2): # Views
             for k in range(3): # Tilts
                 ax = axs[j]
@@ -324,14 +325,21 @@ class Data:
                 ax.errorbar(x1, y, yerr=stds, fmt='o'+colors[k], label=labels[k]) # Plot dots
                 ax.plot(x0, y_lst, '-'+colors[k])
 
-                print('Pol offset (deg): ' + str(np.round(x0[np.argmax(y_lst)], 2)))
+                means2 = np.mean(data_subset, axis=(0,1))
+                xx = np.linspace(0,180,means2.flatten().shape[-1])
+                ax.plot(xx, means2.T.flatten(), '-'+colors[k], alpha=0.3)
+
+                offset = x0[np.argmax(y_lst)]
+                offsets.append(offset)
+                print('Pol Offset (deg): ' + '{:.2f}'.format(offset))
 
             # Labels
             ax.set_xlabel('Excitation polarization $\\hat{\\mathbf{p}}$ (degrees)')
-            ax.set_ylabel('Counts')
+            if j == 0:
+                ax.set_ylabel('Counts')
             ax.set_xlim([-10,190])
-            ax.set_ylim([0.8*np.min(np.mean(self.g, axis=(0,1,2))),
-                         1.2*np.max(np.mean(self.g, axis=(0,1,2)))])
+            ax.set_ylim([0.9*np.min(np.mean(self.g, axis=(0,1,2))),
+                         1.1*np.max(np.mean(self.g, axis=(0,1,2)))])
             ax.xaxis.set_ticks([0, 45, 90, 135, 180])
             ax.legend(frameon=False)
 
@@ -339,3 +347,6 @@ class Data:
         axs[1].annotate('SPIMB', xy=(0,0), xytext=(0.5, 1.1), xycoords='axes fraction', textcoords='axes fraction', ha='center', va='center')
         
         f.savefig(out, bbox_inches='tight')
+
+        return np.mean(offsets)
+
