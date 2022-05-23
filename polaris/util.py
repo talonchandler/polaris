@@ -91,7 +91,7 @@ def xyz2str(xyz):
         if element == -1/2:
             string += '-\\frac{1}{2}'+s[i]
         else:
-            string += 'NA'
+            string += '+{:.1f}'.format(element)+s[i]
     if string[1] == '+' or string == '$-\hat{\mathbf{z}}':
         string = string[0] + string[2:]
     string += '$'
@@ -182,3 +182,42 @@ class ScaleMap:
         out[x < self.min] = 0
         out[x > self.max] = 1
         return out
+
+def pols_from_tilt(di0, di1, pol_offset=0, t1A=9, t1B=5, t_1A=-5, t_1B=-7):
+    theta_deg = [0,45,60,90,120,135,180]
+    theta = np.deg2rad(np.array(theta_deg) - pol_offset) # Correct degrees
+    pols = np.zeros((2, 3*theta.shape[-1], 3))
+
+    # Tilt 0 
+    pols[0,0:7,1] = np.cos(theta)
+    pols[0,0:7,2] = -np.sin(theta)
+    pols[1,0:7,0] = -np.sin(theta)
+    pols[1,0:7,1] = np.cos(theta)
+
+    # Tilt 1
+    dA = np.deg2rad(t1A) # +10 for A
+    dB = np.deg2rad(t1B) # +8 for B
+    pols[0,7:14,0] = np.sin(dA)*np.cos(theta)
+    pols[0,7:14,1] = np.cos(dA)*np.cos(theta)
+    pols[0,7:14,2] = -np.sin(theta)
+    pols[1,7:14,0] = -np.sin(theta)
+    pols[1,7:14,1] = np.cos(dB)*np.cos(theta)
+    pols[1,7:14,2] = np.sin(dB)*np.cos(theta)
+
+    # Tilt -1
+    dA = np.deg2rad(t_1A) # -10 for A
+    dB = np.deg2rad(t_1B) # -8 for B
+    pols[0,14:21,0] = np.sin(dA)*np.cos(theta)
+    pols[0,14:21,1] = np.cos(dA)*np.cos(theta)
+    pols[0,14:21,2] = -np.sin(theta)
+    pols[1,14:21,0] = -np.sin(theta)
+    pols[1,14:21,1] = np.cos(dB)*np.cos(theta)
+    pols[1,14:21,2] = np.sin(dB)*np.cos(theta)
+
+    return np.stack([pols[0,di0,:], pols[1,di1,:]]) # V x P X 3
+
+def my_pdb(debug):
+    if debug:
+        print("Press c to continue...")
+        import pdb; pdb.set_trace()
+    return
