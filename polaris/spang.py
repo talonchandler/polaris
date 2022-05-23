@@ -67,6 +67,10 @@ class Spang:
     def gfa(self):
         return np.nan_to_num(np.sqrt(1 - (self.f[...,0]**2)/np.sum(self.f**2, axis=-1)))
 
+    def op(self, xyz):
+        sft = util.xyz_sft(xyz, max_l=2)[1:]
+        return np.sqrt(4*np.pi/5)*np.einsum('ijkl,l->ijk', self.f[...,1:6], sft)
+    
     def tensor(self):
         log.info("Calculating tensor fits")
         M = np.load(os.path.join(os.path.dirname(__file__), 'harmonics/sh2tensor.npy'))

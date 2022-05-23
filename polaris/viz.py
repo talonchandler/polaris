@@ -791,21 +791,22 @@ def plot_den_gfa_histogram(density, gfa, filename):
     plt.savefig(filename, bbox_inches='tight', dpi=300)
     plt.close()    
 
-def plot_histogram(data, filename, bin_n=26, color=[1,0,0], ymax=5000, min_line=None, max_line=None):
+def plot_histogram(data, filename, bin_n=26, color=[1,0,0], ymax=5000,
+                   min_line=None, max_line=None, xlabel='GFA', xlim=[0,1]):
     f, ax = plt.subplots(1, 1, figsize=(4, 1.5))
     
     ## Plot GFA-density histogram
-    ax.hist(data, bins=np.linspace(0,1,num=bin_n), color=color)
+    ax.hist(data, bins=np.linspace(xlim[0],xlim[1],num=bin_n), color=color)
 
     if min_line is not None:
         ax.plot([min_line, min_line], [0, ymax], '--k')
     if max_line is not None:
         ax.plot([max_line, max_line], [0, ymax], '--k')
         
-    ax.set_xlim([0,1])
+    ax.set_xlim(xlim)
     ax.set_ylim([0,ymax])    
-    ax.set_xlabel('GFA')
-    ax.set_ylabel('\# Voxels')
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel('# Voxels')
 
     util.mkdir(filename)
     plt.savefig(filename, bbox_inches='tight', dpi=300)
