@@ -226,7 +226,7 @@ class Spang:
                   scalebar_on=True, invert=False, flat=False, colormap='bwr',
                   global_cm=True, camtilt=False, axes_on=False, colors=None,
                   arrows=None, arrow_color=np.array([0,0,0]), linewidth=0.1,
-                  mark_slices=None, z_shift=0, profiles=[], markers=[],
+                  mark_slices=None, shift=[0,0,0], profiles=[], markers=[],
                   marker_colors=[], marker_scale=1, normalize_glyphs=True,
                   gamma=1, density_max=1):
         log.info('Preparing to render ' + out_path)
@@ -372,9 +372,9 @@ class Spang:
                     volume = viz.density_slicer(gamma_corr, scalemap)
                     ren.add(volume)
 
-                X = np.float(data.shape[0])
-                Y = np.float(data.shape[1])
-                Z = np.float(data.shape[2]) - z_shift
+                X = np.float(data.shape[0]) - shift[0]
+                Y = np.float(data.shape[1]) - shift[1]
+                Z = np.float(data.shape[2]) - shift[2]
                 
                 # Titles                
                 if row == 0 and titles_on:
