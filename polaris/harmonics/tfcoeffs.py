@@ -21,9 +21,9 @@ class TFCoeffs:
     second index corresponds to the spherical harmonics. We use the following
     "lexicographic ordering" of the harmonics:
 
-    z_0  y_0^0, z_0  y_2^-2, z_0  y_2^0, ...
-    z_-2 y_0^0, z_-2 y_2^-2, z_-2 y_2^0,
-    z_2  y_0^0, z_2  y_2^-2, z_2  y_2^0,
+    z_0  y_0^0, z_0  y_2^-2, z_0 y_2^-1, z_0  y_2^0, ...
+    z_-2 y_0^0, z_-2 y_2^-2, z_-2 y_2^-1, z_-2 y_2^0,
+    z_2  y_0^0, z_2  y_2^-2, z_2 y_2^-1, z_2  y_2^0,
     .
     .
     .

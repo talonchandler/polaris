@@ -13,14 +13,14 @@ G = np.load(os.path.join(os.path.dirname(__file__), 'gaunt_l4.npy'))
 
 class SHCoeffs:
     """An SHCoeffs object stores real spherical harmonic coefficients for even
-    bands. It provides methods for adding, multiplying, and plotting these
+    bands (ell coefficients). It provides methods for adding, multiplying, and plotting these
     coefficients.
 
     Inspired by a similar class in SHTOOLS https://shtools.github.io/SHTOOLS/
 
     Uses the following "lexicographic ordering" of the even spherical harmonics:
 
-    y_0^0, y_2^-2, y_2^0, y_2^2, y_4^-4, ...
+    y_0^0, y_2^-2, y_2^-1, y_2^0, y_2^1, y_2^2, y_4^-4, y_4^-3...
     """
 
     def __init__(self, coeffs):
