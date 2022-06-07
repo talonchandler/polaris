@@ -221,3 +221,19 @@ def my_pdb(debug):
         print("Press c to continue...")
         import pdb; pdb.set_trace()
     return
+
+def ijcsv2np(filename, interp_factor=1):
+    print("Reading: ")
+    print(filename)
+    points = np.genfromtxt(filename, delimiter=',', skip_header=1, usecols=(1,2,4))
+    points[:,2] = points[:,2] - 1 # Fix imagej z indexing
+    points = np.round(points).astype(int) # Round to nearest integer
+    return points # TODO interpolate here
+
+# TODO GET THIS WORKING
+def interpolate_vector(data, factor):
+    # https://stackoverflow.com/questions/53303203/how-to-use-numpy-to-interpolate-between-pairs-of-values-in-a-list
+    n = len(data)
+    x = np.linspace(0, n - 1, (n - 1) * factor + 1)
+    xp = np.arange(n)
+    return np.interp(x, xp, np.asarray(data))

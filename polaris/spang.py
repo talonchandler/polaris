@@ -644,8 +644,8 @@ class Spang:
                 density = coeffs[:N-1,0] # f_2m
                 ell2 = coeffs[:N-1,1:6] # f_2m
                 out.append(np.einsum('ij,ij->i', sft, ell2)*np.sqrt(4*np.pi/5)) # OO
-                ylabel = 'Unnormalized Order Parameter'
-                ylim = [-1.1*np.max(np.concatenate(out)), 1.1*np.max(np.concatenate(out))]
+                ylabel = 'Order Parameter'
+                ylim = [-0.01, 0.01]
                 # Calculate x positions
                 xpos = np.zeros((N-1,)) # 
                 xpos[1:] = np.linalg.norm(profilei[1:-1,:] - profilei[0:-2,:], axis=-1)
