@@ -604,7 +604,7 @@ class Spang:
             diffs = profilei[1:N] - profilei[0:N-1] 
             dirs = diffs/np.linalg.norm(diffs, axis=1, keepdims=True)
             if prof_type == 'density':
-                out.append(interpn(grid, self.f[...,0], profilei))
+                out.append(interpn(grid, self.f[...,0], profilei, method='nearest'))
                 ylabel = 'Normalized density'
                 ylim = [0,1]
                 # Calculate x positions
@@ -613,7 +613,7 @@ class Spang:
                 xpos = np.cumsum(xpos)*dx
                 
             elif prof_type == 'gfa':
-                out.append(interpn(grid, self.gfa(), profilei))
+                out.append(interpn(grid, self.gfa(), profilei, method='nearest'))
                 ylabel = 'GFA'
                 ylim = [0,1]
                 # Calculate x positions
@@ -625,32 +625,18 @@ class Spang:
                 sft = np.zeros((N-1, 5))
                 for n in range(dirs.shape[0]):
                     sft[n,:] = util.xyz_sft(dirs[n,:], max_l=2)[1:]
-                coeffs = interpn(grid, self.f, profilei) 
+                coeffs = interpn(grid, self.f, profilei, method='nearest') 
                 density = coeffs[:N-1,0] # f_2m
                 ell2 = coeffs[:N-1,1:6] # f_2m
                 ell2_norm = ell2/density[:, np.newaxis]
                 out.append(np.einsum('ij,ij->i', sft, ell2_norm)*np.sqrt(4*np.pi/5)) # OO
-                ylabel = 'Normalized Order Parameter'
-                ylim = [-0.5,1]
-                # Calculate x positions
-                xpos = np.zeros((N-1,)) # 
-                xpos[1:] = np.linalg.norm(profilei[1:-1,:] - profilei[0:-2,:], axis=-1)
-                xpos = np.cumsum(xpos)*dx
-            elif prof_type == 'order2':
-                sft = np.zeros((N-1, 5))
-                for n in range(dirs.shape[0]):
-                    sft[n,:] = util.xyz_sft(dirs[n,:], max_l=2)[1:]
-                coeffs = interpn(grid, self.f, profilei) 
-                density = coeffs[:N-1,0] # f_2m
-                ell2 = coeffs[:N-1,1:6] # f_2m
-                out.append(np.einsum('ij,ij->i', sft, ell2)*np.sqrt(4*np.pi/5)) # OO
                 ylabel = 'Order Parameter'
-                ylim = [-0.01, 0.01]
+                ylim = [-1,1.5]
                 # Calculate x positions
                 xpos = np.zeros((N-1,)) # 
                 xpos[1:] = np.linalg.norm(profilei[1:-1,:] - profilei[0:-2,:], axis=-1)
                 xpos = np.cumsum(xpos)*dx
-
+                
             xpos_out.append(xpos)
 
         # Normalize
@@ -660,17 +646,25 @@ class Spang:
         else:
             max_out = 1
 
+        maxx = np.max(np.concatenate(xpos_out))
+            
         f, ax = plt.subplots(1, 1, figsize=(1.5,1.5))
         ax.set_xlabel('Position along profile ($\mu$m)')
         ax.set_ylabel(ylabel)
+        ax.set_xlim([-0.05*maxx,maxx])
         ax.set_ylim(ylim)
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
 
         c = np.array([[1,0,0],[0,1,0],[0,0,1],[1,1,0],[0,1,1]])
         for i, profilei in enumerate(profilesi):
-            ax.plot(xpos_out[i], out[i]/max_out, '-', c=c[i,:], clip_on=False)
-            ax.plot(0, out[i][0]/max_out, 'o', c=c[i,:], ms=5-.5*i, clip_on=False)
+            ax.plot(xpos_out[i], out[i]/max_out, '-', c=c[i,:], clip_on=True, alpha=1, lw=0.5)
+            ax.plot(0, out[i][0]/max_out, 'o', c=c[i,:], ms=5-.5*i, clip_on=True, alpha=1, lw=.5)
+            if prof_type == 'order1':
+                ax.plot([-maxx,maxx],[1,1], 'k--', lw=0.1, alpha=0.8, clip_on=True)
+                ax.plot([-maxx,maxx],[0,0], 'k--', lw=0.1, alpha=0.5, clip_on=True)
+                ax.plot([-maxx,maxx],[-.5,-.5], 'k--', lw=0.1, alpha=0.8, clip_on=True)
+            
         plt.savefig(filename, bbox_inches='tight')
 
 class SpangSeries:

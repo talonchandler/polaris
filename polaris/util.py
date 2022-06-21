@@ -228,12 +228,13 @@ def ijcsv2np(filename, interp_factor=1):
     points = np.genfromtxt(filename, delimiter=',', skip_header=1, usecols=(1,2,4))
     points[:,2] = points[:,2] - 1 # Fix imagej z indexing
     points = np.round(points).astype(int) # Round to nearest integer
-    return points # TODO interpolate here
+    return interpolate_vector(points, interp_factor) # TODO interpolate here
 
 # TODO GET THIS WORKING
 def interpolate_vector(data, factor):
-    # https://stackoverflow.com/questions/53303203/how-to-use-numpy-to-interpolate-between-pairs-of-values-in-a-list
-    n = len(data)
-    x = np.linspace(0, n - 1, (n - 1) * factor + 1)
-    xp = np.arange(n)
-    return np.interp(x, xp, np.asarray(data))
+    interpolated_array = np.zeros((factor*data.shape[0], data.shape[1]))
+    for i in range(data.shape[1]):
+        interpolated_array[:,i] = np.interp(np.linspace(0, 1, factor*data.shape[0]),
+                                            np.linspace(0, 1, data.shape[0]),
+                                            data[:,i])
+    return interpolated_array
