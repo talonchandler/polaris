@@ -67,6 +67,32 @@ class Spang:
     def gfa(self):
         return np.nan_to_num(np.sqrt(1 - (self.f[...,0]**2)/np.sum(self.f**2, axis=-1)))
 
+    def order_parameter(self, direction='max', sigma=5, rho=8):
+        # direction='max' or 'min' corresponds to max/min eigenvalue of structure tensor.
+        # sigma = derivative averaging scale
+        # rho = post-derivative averaging scale
+        from structure_tensor import eig_special_3d, structure_tensor_3d
+        if direction == 'min':
+            ind = 0
+        elif direction == 'max':
+            ind = 2
+        else:
+            print('Warning: ' + direction + ' is unsupported')
+
+            
+        S = structure_tensor_3d(1e6*self.f[...,0], sigma, rho)
+        val, vec = eig_special_3d(S, full=True)
+
+        dir_vec = np.flip(vec[ind,...], axis=0) # xyz order
+        op = np.zeros(self.f[...,0].shape)
+        for x, y, z in np.ndindex(op.shape):
+            dir_sft = util.xyz_sft(dir_vec[:,x,y,z], max_l=2)[1:]
+            op[x,y,z] = np.sqrt(4*np.pi/5)*np.dot(self.f[x,y,z,1:6]/self.f[x,y,z,0], dir_sft)
+            if y % 100 == 0:
+                print(x,y,z)
+
+        return op
+            
     def op(self, xyz):
         sft = util.xyz_sft(xyz, max_l=2)[1:]
         return np.sqrt(4*np.pi/5)*np.einsum('ijkl,l->ijk', self.f[...,1:6], sft)
