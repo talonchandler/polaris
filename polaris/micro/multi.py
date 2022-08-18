@@ -151,6 +151,9 @@ class MultiMicroscope:
 
         # 3D IFT
         g = np.fft.irfftn(G, s=f.shape[0:3], axes=(0,1,2))
+
+        # Clip negatives (sometimes useful in simulation)
+        # g = np.clip(g, 0, None) 
         
         # Apply Poisson noise
         if snr is not None:

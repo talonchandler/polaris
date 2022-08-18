@@ -258,7 +258,7 @@ class Spang:
                   arrows=None, arrow_color=np.array([0,0,0]), linewidth=0.1,
                   mark_slices=None, shift=[0,0,0], profiles=[], markers=[],
                   marker_colors=[], marker_scale=1, normalize_glyphs=True,
-                  gamma=1, density_max=1):
+                  gamma=1, density_max=1, z_shift=None):
         log.info('Preparing to render ' + out_path)
 
         # Handle scalemap
@@ -486,11 +486,15 @@ class Spang:
                     ren.AddActor(actor)
                         
                 # Draw profile lines
-                colors = np.array([[1,0,0],[0,1,0],[0,0,1],[1,1,0],[0,1,1]])
-
                 for i, profile in enumerate(profiles):
+                    if colors is None:
+                        cc = np.array([[1,0,0],[0,1,0],[0,0,1],[1,1,0],[0,1,1]])
+                        color = cc[i%5,:]
+                    else:
+                        color = colors[i]
+
                     n_seg = profile.shape[0]
-                    viz.draw_unlit_line(ren, [profile], n_seg*[colors[i,:]], lw=0.5, scale=1.0)
+                    viz.draw_unlit_line(ren, [profile], n_seg*[color], lw=0.5, scale=1.0)
 
                     # Draw sphere
                     source = vtk.vtkSphereSource()
@@ -619,9 +623,8 @@ class Spang:
 
         return my_cam
 
-    def vis_profiles(self, filename, profilesi, dx=0.13, prof_type='density'):
+    def vis_profiles(self, filename, profilesi, colors=None, dx=0.13, prof_type='density', markers=True):
         from scipy.interpolate import interpn
-
         out = []
         xpos_out = []
         for profilei in profilesi:
@@ -657,7 +660,7 @@ class Spang:
                 ell2_norm = ell2/density[:, np.newaxis]
                 out.append(np.einsum('ij,ij->i', sft, ell2_norm)*np.sqrt(4*np.pi/5)) # OO
                 ylabel = 'Order Parameter'
-                ylim = [-1,1.5]
+                ylim = [-1,20]
                 # Calculate x positions
                 xpos = np.zeros((N-1,)) # 
                 xpos[1:] = np.linalg.norm(profilei[1:-1,:] - profilei[0:-2,:], axis=-1)
@@ -684,8 +687,18 @@ class Spang:
 
         c = np.array([[1,0,0],[0,1,0],[0,0,1],[1,1,0],[0,1,1]])
         for i, profilei in enumerate(profilesi):
-            ax.plot(xpos_out[i], out[i]/max_out, '-', c=c[i,:], clip_on=True, alpha=1, lw=0.5)
-            ax.plot(0, out[i][0]/max_out, 'o', c=c[i,:], ms=5-.5*i, clip_on=True, alpha=1, lw=.5)
+            if colors is None:
+                color = c[i%5,:]
+            else:
+                color = colors[i]
+
+            if markers:
+                ms=5-.5*i
+            else:
+                ms=0
+                
+            ax.plot(xpos_out[i], out[i]/max_out, '-', c=color, clip_on=True, alpha=1, lw=0.5)
+            ax.plot(0, out[i][0]/max_out, 'o', c=color, ms=ms, clip_on=True, alpha=1, lw=.5)
             if prof_type == 'order1':
                 ax.plot([-maxx,maxx],[1,1], 'k--', lw=0.1, alpha=0.8, clip_on=True)
                 ax.plot([-maxx,maxx],[0,0], 'k--', lw=0.1, alpha=0.5, clip_on=True)
