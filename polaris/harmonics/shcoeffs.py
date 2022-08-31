@@ -57,7 +57,18 @@ class SHCoeffs:
         return self.__mul__(other)
 
     def __truediv__(self, scalar):
-        return SHCoeffs(self.coeffs/scalar)
+        if not isinstance(other, SHCoeffs):
+            return SHCoeffs(np.array(self.coeffs) / other)
+
+        # Pad inputs
+        x1 = np.pad(np.array(self.coeffs), (0, 15 - len(self.coeffs)), 'constant')
+        x2 = np.pad(np.array(other.coeffs), (0, 15 - len(other.coeffs)), 'constant')
+
+        mat = np.einsum('jls,s->jl', G, x2)
+        mat_inv = np.linalg.inv(mat)
+        result = np.einsum('jl,l->j', mat_inv, x1)
+
+        return SHCoeffs(result)
 
     def __repr__(self):
         string = 'SHCoeffs: \n'
