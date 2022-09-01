@@ -56,7 +56,7 @@ class SHCoeffs:
     def __rmul__(self, other):
         return self.__mul__(other)
 
-    def __truediv__(self, scalar):
+    def __truediv__(self, other):
         if not isinstance(other, SHCoeffs):
             return SHCoeffs(np.array(self.coeffs) / other)
 
