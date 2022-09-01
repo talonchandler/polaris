@@ -133,6 +133,7 @@ dependencies:
   - pyparsing=3.0.4
   - pysocks=1.7.1
   - pytables=3.6.1
+  - pytest=7.1.2
   - python=3.9.7
   - python-dateutil=2.8.2
   - python_abi=3.9
