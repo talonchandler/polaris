@@ -23,4 +23,11 @@ setup(name='polaris',
       packages=['polaris'],
       zip_safe=False,
       test_suite='tests',
+      install_requires=[
+          'numpy',
+          'matplotlib',
+          'scipy',
+          'sympy',
+          'pytest',
+      ]
       )
