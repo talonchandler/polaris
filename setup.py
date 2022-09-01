@@ -21,6 +21,7 @@ setup(name='polaris',
       author_email='talonchandler@talonchandler.com',
       license='MIT',
       packages=['polaris', 'polaris.harmonics', 'polaris.micro'],
+      include_package_data=True,
       zip_safe=False,
       test_suite='tests',
       install_requires=[
