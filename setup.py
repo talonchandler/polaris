@@ -30,5 +30,6 @@ setup(name='polaris',
           'scipy',
           'sympy',
           'pytest',
+          'setuptools-git',
       ]
       )
