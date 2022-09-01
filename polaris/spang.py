@@ -252,7 +252,7 @@ class Spang:
                   skip_n=1, skip_n_roi=1, scale=1, roi_scale=1, zoom_start=1.0,
                   zoom_end=1.0, top_zoom=1, interact=False,
                   save_parallels=False, my_cam=None, compress=True, roi=None,
-                  corner_text='', scalemap=None, titles_on=True,
+                  corner_text='', scalemap=None, scalemap_roi=None, titles_on=True,
                   scalebar_on=True, invert=False, flat=False, colormap='bwr',
                   global_cm=True, camtilt=False, axes_on=False, colors=None,
                   arrows=None, arrow_color=np.array([0,0,0]), linewidth=0.1,
@@ -264,6 +264,8 @@ class Spang:
         # Handle scalemap
         if scalemap is None:
             scalemap = util.ScaleMap(min=np.min(self.f[...,0]), max=np.max(self.f[...,0]))
+        if scalemap_roi is None:
+            scalemap_roi = util.ScaleMap(min=np.min(self.f[...,0]), max=np.max(self.f[...,0]))
         
         # Prepare output
         util.mkdir(out_path)
@@ -342,7 +344,7 @@ class Spang:
                     skip_mask[::skip_n_roi,::skip_n_roi,::skip_n_roi] = 1
                     my_mask = np.logical_and(roi_mask, skip_mask)
                     scale = roi_scale
-                    scalemap = scalemap
+                    scalemap = scalemap_roi
 
                 # Add visuals to renderer
                 if viz_type[col] == "ODF":
@@ -660,7 +662,7 @@ class Spang:
                 ell2_norm = ell2/density[:, np.newaxis]
                 out.append(np.einsum('ij,ij->i', sft, ell2_norm)*np.sqrt(4*np.pi/5)) # OO
                 ylabel = 'Order Parameter'
-                ylim = [-1,20]
+                ylim = [-1,2]
                 # Calculate x positions
                 xpos = np.zeros((N-1,)) # 
                 xpos[1:] = np.linalg.norm(profilei[1:-1,:] - profilei[0:-2,:], axis=-1)
