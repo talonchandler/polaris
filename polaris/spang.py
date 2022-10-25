@@ -625,7 +625,7 @@ class Spang:
 
         return my_cam
 
-    def vis_profiles(self, filename, profilesi, colors=None, dx=0.13, prof_type='density', markers=True):
+    def vis_profiles(self, filename, profilesi, colors=None, dx=0.13, prof_type='density', markers=True, ylim=[-0.1, 0.1]):
         from scipy.interpolate import interpn
         out = []
         xpos_out = []
@@ -652,17 +652,15 @@ class Spang:
                 xpos[1:] = np.linalg.norm(profilei[1:,:] - profilei[0:-1,:], axis=-1)
                 xpos = np.cumsum(xpos)*dx
                 
-            elif prof_type == 'order1':
+            elif prof_type == 'order':
                 sft = np.zeros((N-1, 5))
                 for n in range(dirs.shape[0]):
                     sft[n,:] = util.xyz_sft(dirs[n,:], max_l=2)[1:]
                 coeffs = interpn(grid, self.f, profilei, method='nearest') 
                 density = coeffs[:N-1,0] # f_2m
                 ell2 = coeffs[:N-1,1:6] # f_2m
-                ell2_norm = ell2/density[:, np.newaxis]
-                out.append(np.einsum('ij,ij->i', sft, ell2_norm)*np.sqrt(4*np.pi/5)) # OO
+                out.append(np.einsum('ij,ij->i', sft, ell2)*np.sqrt(4*np.pi/5)) # OO
                 ylabel = 'Order Parameter'
-                ylim = [-1,2]
                 # Calculate x positions
                 xpos = np.zeros((N-1,)) # 
                 xpos[1:] = np.linalg.norm(profilei[1:-1,:] - profilei[0:-2,:], axis=-1)
