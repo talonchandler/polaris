@@ -697,9 +697,9 @@ class Spang:
             else:
                 ms=0
                 
-            ax.plot(xpos_out[i], out[i]/max_out, '-', c=color, clip_on=True, alpha=1, lw=0.5)
-            ax.plot(0, out[i][0]/max_out, 'o', c=color, ms=ms, clip_on=True, alpha=1, lw=.5)
-            if prof_type == 'order1':
+            ax.plot(xpos_out[i], out[i]/max_out, '-', c=color, clip_on=True, alpha=.8, lw=0.5)
+            ax.plot(0, out[i][0]/max_out, 'o', c=color, ms=ms, clip_on=True, alpha=.8, lw=.5)
+            if prof_type == 'order':
                 ax.plot([-maxx,maxx],[1,1], 'k--', lw=0.1, alpha=0.8, clip_on=True)
                 ax.plot([-maxx,maxx],[0,0], 'k--', lw=0.1, alpha=0.5, clip_on=True)
                 ax.plot([-maxx,maxx],[-.5,-.5], 'k--', lw=0.1, alpha=0.8, clip_on=True)
