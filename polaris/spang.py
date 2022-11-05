@@ -1,7 +1,7 @@
 import subprocess
 import matplotlib
 matplotlib.rcParams['mathtext.fontset'] = 'cm'
-matplotlib.rc('font', family='serif', serif='CMU Serif')
+# matplotlib.rc('font', family='serif', serif='CMU Serif')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib import rc
