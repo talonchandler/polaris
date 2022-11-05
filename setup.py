@@ -31,5 +31,11 @@ setup(name='polaris',
           'sympy',
           'pytest',
           'setuptools-git',
+          'imageio',
+          'vtk',
+          'tifffile',
+          'joblib',
+          'dipy==1.4.1',
+          'fury==0.7.1',
       ]
       )
