@@ -230,10 +230,13 @@ class Spang:
                 d = np.moveaxis(data, [2, 1, 0], [0, 1, 2])
                 tif.save(d[None,:,None,:,:].astype(np.float32)) # TZCYXS
                 
-    def read_tiff(self, filename):
+    def read_tiff(self, filename, contig=False):
         log.info('Reading '+filename)
         with tifffile.TiffFile(filename) as tf:
-            self.f = np.ascontiguousarray(np.moveaxis(tf.asarray(), [0, 1, 2, 3], [2, 3, 1, 0]))
+            if contig:
+                self.f = np.ascontiguousarray(np.moveaxis(tf.asarray(), [0, 1, 2, 3], [2, 3, 1, 0]))
+            else:
+                self.f = np.moveaxis(tf.asarray(), [0, 1, 2, 3], [2, 3, 1, 0])
         self.X = self.f.shape[0]
         self.Y = self.f.shape[1]
         self.Z = self.f.shape[2]
