@@ -628,7 +628,8 @@ class Spang:
 
         return my_cam
 
-    def vis_profiles(self, filename, profilesi, colors=None, dx=0.13, prof_type='density', markers=True, ylim=[-0.1, 0.1]):
+    def vis_profiles(self, filename, profilesi, colors=None, dx=0.13, prof_type='density', markers=True, xlim=None, ylim=[-0.1, 0.1]):
+        print("Generating: "+filename)
         from scipy.interpolate import interpn
         out = []
         xpos_out = []
@@ -683,9 +684,12 @@ class Spang:
         maxx = np.max(np.concatenate(xpos_out))
             
         f, ax = plt.subplots(1, 1, figsize=(1.5,1.5))
-        ax.set_xlabel('Position along profile ($\mu$m)')
+        ax.set_xlabel('Pos. on prof. ($\mu$m)')
         ax.set_ylabel(ylabel)
-        ax.set_xlim([-0.05*maxx,maxx])
+        if xlim is None:
+            ax.set_xlim([-0.05*maxx,maxx])
+        else:
+            ax.set_xlim(xlim)
         ax.set_ylim(ylim)
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
