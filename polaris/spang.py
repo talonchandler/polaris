@@ -261,7 +261,7 @@ class Spang:
                   arrows=None, arrow_color=np.array([0,0,0]), linewidth=0.1,
                   mark_slices=None, shift=[0,0,0], profiles=[], markers=[],
                   marker_colors=[], marker_scale=1, normalize_glyphs=True,
-                  gamma=1, density_max=1, z_shift=None):
+                  gamma=1, density_max=1, xyz_shift=(0,0,0), odf_scale=1.0, view_parallel=False):
         log.info('Preparing to render ' + out_path)
 
         # Handle scalemap
@@ -354,7 +354,7 @@ class Spang:
                     renWin.SetMultiSamples(4) 
                     log.info('Rendering '+str(np.sum(my_mask)) + ' ODFs')
                     fodf_spheres = viz.odf_sparse(data, self.Binv, sphere=self.sphere,
-                                                  scale=skip_n*scale*0.5, norm=False,
+                                                  scale=skip_n*odf_scale*scale*0.35, norm=False,
                                                   colormap=colormap, mask=my_mask,
                                                   global_cm=global_cm, scalemap=scalemap,
                                                   odf_sphere=False, flat=flat, normalize=normalize_glyphs)
@@ -455,20 +455,30 @@ class Spang:
                 # Draw marked slices
                 if mark_slices is not None:
                     for slicen in mark_slices:
-                        md = np.max((X, Z))
-                        frac = slicen/data.shape[1]
-                        rr = 0.83*md
-                        t1 = 0
-                        t2 = np.pi/2 
-                        t3 = np.pi
-                        t4 = 3*np.pi/2
-                        points = [np.array([[X/2+rr*np.cos(t1),frac*Y,Z/2+rr*np.sin(t1)],
-                                            [X/2+rr*np.cos(t2),frac*Y,Z/2+rr*np.sin(t2)],
-                                            [X/2+rr*np.cos(t3),frac*Y,Z/2+rr*np.sin(t3)],
-                                            [X/2+rr*np.cos(t4),frac*Y,Z/2+rr*np.sin(t4)],
-                                            [X/2+rr*np.cos(t1),frac*Y,Z/2+rr*np.sin(t1)],
-                                            [X/2+rr*np.cos(t2),frac*Y,Z/2+rr*np.sin(t2)]])]
-                        viz.draw_unlit_line(ren, points, 6*[line_color+0.6], lw=0.3, scale=1.0)
+                        if isinstance(slicen, int):
+                            md = np.max((X, Z))
+                            frac = slicen/data.shape[1]
+                            rr = 0.83*md
+                            t1 = 0
+                            t2 = np.pi/2 
+                            t3 = np.pi
+                            t4 = 3*np.pi/2
+                            points = [np.array([[X/2+rr*np.cos(t1),frac*Y,Z/2+rr*np.sin(t1)],
+                                                [X/2+rr*np.cos(t2),frac*Y,Z/2+rr*np.sin(t2)],
+                                                [X/2+rr*np.cos(t3),frac*Y,Z/2+rr*np.sin(t3)],
+                                                [X/2+rr*np.cos(t4),frac*Y,Z/2+rr*np.sin(t4)],
+                                                [X/2+rr*np.cos(t1),frac*Y,Z/2+rr*np.sin(t1)],
+                                                [X/2+rr*np.cos(t2),frac*Y,Z/2+rr*np.sin(t2)]])]
+                            viz.draw_unlit_line(ren, points, 6*[line_color+0.6], lw=0.3, scale=1.0)
+                        elif isinstance(slicen, tuple):
+                            slicey, a, b, c, d = slicen
+                            points = [np.array([[X/2+((a+b)/np.sqrt(2)), slicey, Z/2+((-a+b)/np.sqrt(2))],
+                                                [X/2+((b-c)/np.sqrt(2)), slicey, Z/2+((b+c)/np.sqrt(2))],
+                                                [X/2+((-c-d)/np.sqrt(2)), slicey, Z/2+((c-d)/np.sqrt(2))],
+                                                [X/2+((a-d)/np.sqrt(2)), slicey, Z/2+((-a-d)/np.sqrt(2))],
+                                                [X/2+((a+b)/np.sqrt(2)), slicey, Z/2+((-a+b)/np.sqrt(2))]])]
+                                                
+                            viz.draw_unlit_line(ren, points, 5*[line_color+0.6], lw=0.3, scale=1.0)
 
                 # Draw markers
                 for i, marker in enumerate(markers):
@@ -542,7 +552,7 @@ class Spang:
                     else:
                         cam.SetPosition(((X-1)/2 + Rcam, (Y-1)/2, (Z-1)/2))
                         cam.SetViewUp((0, 0, 1))
-                    cam.SetFocalPoint(((X-1)/2, (Y-1)/2, (Z-1)/2))
+                    cam.SetFocalPoint(((X-1)/2 - xyz_shift[0], (Y-1)/2 - xyz_shift[1], (Z-1)/2 - xyz_shift[2]))
                     #ren.reset_camera()
                 else:
                     ren.set_camera(*my_cam)
@@ -599,6 +609,10 @@ class Spang:
                     ren.zoom(1 + ((zoom_end[j] - zoom_start[j])/n_frames))
                     ren.azimuth(az)
                     ren.reset_clipping_range()
+                    if view_parallel: # For viewing slices
+                        ren.projection(proj_type="parallel")
+                        ren.reset_camera()
+                        ren.zoom(zoom_start[j])
 
                 renderLarge = vtk.vtkRenderLargeImage()
                 renderLarge.SetMagnification(1)
@@ -684,7 +698,7 @@ class Spang:
         maxx = np.max(np.concatenate(xpos_out))
             
         f, ax = plt.subplots(1, 1, figsize=(1.5,1.5))
-        ax.set_xlabel('Pos. on prof. ($\mu$m)')
+        ax.set_xlabel('Profile position ($\mu$m)')
         ax.set_ylabel(ylabel)
         if xlim is None:
             ax.set_xlim([-0.05*maxx,maxx])

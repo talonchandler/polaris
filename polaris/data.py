@@ -125,7 +125,7 @@ class Data:
         # Calculate arrow positions
         X = np.float(self.g.shape[0])
         Y = np.float(self.g.shape[1])
-        Z = np.float(self.g.shape[2]) - kwargs['z_shift']
+        Z = np.float(self.g.shape[2])# - kwargs['z_shift']
         max_dim = np.max([X,Y,Z])
 
         tips = np.array([[(X-max_dim)/2,Y/2,Z/2],
