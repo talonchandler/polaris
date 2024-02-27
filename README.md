@@ -1,3 +1,10 @@
+This repository accompanies a forthcoming preprint titled "Three-dimensional
+spatio-angular fluorescence microscopy with a polarized dual-view inverted
+selective-plane illumination microscope (pol-diSPIM)".
+
+You can find [associated data on the BioImage
+Archive](https://www.ebi.ac.uk/biostudies/bioimages/studies/S-BIAD1055).
+
 # `polaris`
 
 `polaris` is a set of tools for reconstructing the spatio-angular density of
